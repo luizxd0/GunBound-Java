@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.model.entities.game.PlayerGameResult;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.MessageBcmReader;
 import br.com.gunbound.emulator.packets.writers.RoomWriter;
 import br.com.gunbound.emulator.playdata.MapData;
 import br.com.gunbound.emulator.playdata.MapDataLoader;
@@ -497,6 +498,27 @@ public class GameRoom {
 	public void startGame(byte[] payload) {
 		if (isGameStarted)
 			return;
+
+		// Jewel mode: allow starting with 1 player (solo). Other modes: require at least 2 players.
+		boolean isJewelMode = (this.gameMode == GameMode.JEWEL.getId());
+		int playerCount = getPlayerCount();
+		if (isJewelMode) {
+			if (playerCount < 1) {
+				System.err.println("Cannot start Jewel game: no players in room " + (roomId + 1));
+				return;
+			}
+			if (playerCount == 1) {
+				System.out.println("Jewel solo start allowed in room " + (roomId + 1) + " (1 player).");
+			}
+		} else {
+			if (playerCount < 2) {
+				if (roomMaster != null) {
+					MessageBcmReader.printMsgToPlayer(roomMaster, "Need at least 2 players to start.");
+				}
+				System.err.println("Cannot start game in room " + (roomId + 1) + ": need at least 2 players (current: " + playerCount + ").");
+				return;
+			}
+		}
 
 		/*
 		 * boolean allReady =

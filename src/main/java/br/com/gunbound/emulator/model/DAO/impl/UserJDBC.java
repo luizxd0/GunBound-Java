@@ -102,6 +102,21 @@ public class UserJDBC implements UserDAO {
 		updateGold(playerId, value, "-");
 	}
 
+	@Override
+	public void updateAddGoldAndGp(String playerId, int goldDelta, int gpDelta) {
+		String sql = "UPDATE Game SET Gold = Gold + ?, TotalScore = TotalScore + ?, SeasonScore = SeasonScore + ? "
+				+ "WHERE UserId = ?";
+		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+			stmt.setInt(1, goldDelta);
+			stmt.setInt(2, gpDelta);
+			stmt.setInt(3, gpDelta);
+			stmt.setString(4, playerId);
+			stmt.executeUpdate();
+		} catch (SQLException e) {
+			throw new DbException(e.getMessage());
+		}
+	}
+
 
 	public void updateGold(String playerId, int value, String op) {
 		if(op == null)

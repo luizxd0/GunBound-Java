@@ -8,6 +8,7 @@ public interface UserDAO {
 	//operacoes com Gold
 	void updateMinusGold(String playerId, int value);
 	void updateAddGold(String playerId, int value);
+	void updateAddGoldAndGp(String playerId, int goldDelta, int gpDelta);
 	
 	//operacoes com Cash
 	void updateMinusCash(String playerId, int value);

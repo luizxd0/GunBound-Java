@@ -7,8 +7,12 @@ import java.util.Map;
 import org.mariadb.jdbc.plugin.authentication.standard.ed25519.Utils;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
+import br.com.gunbound.emulator.model.DAO.DAOFactory;
+import br.com.gunbound.emulator.model.DAO.UserDAO;
+import br.com.gunbound.emulator.packets.readers.LoginReader;
 import br.com.gunbound.emulator.model.entities.game.PlayerGameResult;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.CashUpdateReader;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.crypto.GunBoundCipher;
@@ -56,46 +60,67 @@ public class GameResultReader {
 	}
 
 	public static void processEndGame(GameRoom room, byte[] payload) {
-
-		ByteBuf rcvPayload = Unpooled.wrappedBuffer(payload);
-
-		int qtdPlayers = rcvPayload.readByte();
-
-		for (int i = 0; i < qtdPlayers; i++) {
-			rcvPayload.skipBytes(1);
-
-			int slot = rcvPayload.readByte();
-			int gold = rcvPayload.readShortLE();
-			int BonusGold = rcvPayload.readShortLE();
-			rcvPayload.readShortLE();
-			int gp = rcvPayload.readShortLE();
-			int BonusGp = rcvPayload.readShortLE();
-			rcvPayload.readShortLE();
-			rcvPayload.readShortLE();
-			rcvPayload.readShortLE();
-			
-			PlayerGameResult pResult = new PlayerGameResult(gold, BonusGold, gp, BonusGp);
-			
-			System.out.println("pResult >>> SLOT: " + slot + " Valores: " + pResult);
-
-			room.setResultGameBySlot(slot, pResult);
-
+		// Avoid duplicated reward application if client resends result packet.
+		if (!room.tryTriggerEndGame()) {
+			System.out.println("ResultGame already processed for room " + (room.getRoomId() + 1) + ". Ignoring duplicate.");
+			return;
 		}
 
-		rcvPayload.skipBytes(8);
-		
-		
-		//announceScorePlayer(room);
-
-		ByteBuf buffer = Unpooled.EMPTY_BUFFER;
-
+		ByteBuf rcvPayload = Unpooled.wrappedBuffer(payload);
 		try {
+			if (!rcvPayload.isReadable()) {
+				System.err.println("ResultGame payload is empty.");
+				return;
+			}
+
+			int qtdPlayers = rcvPayload.readUnsignedByte();
+
+			for (int i = 0; i < qtdPlayers; i++) {
+				// Some clients (notably solo Jewel) can send a shorter result payload.
+				// Guard reads to avoid IndexOutOfBounds and still finish match cleanup.
+				if (rcvPayload.readableBytes() < 16) {
+					System.err.println("ResultGame payload shorter than expected for player index " + i
+							+ ". Remaining bytes: " + rcvPayload.readableBytes());
+					break;
+				}
+
+				rcvPayload.skipBytes(1);
+
+				int slot = rcvPayload.readUnsignedByte();
+				int gold = rcvPayload.readShortLE();
+				int bonusGold = rcvPayload.readShortLE();
+				rcvPayload.readShortLE();
+				int gp = rcvPayload.readShortLE();
+				int bonusGp = rcvPayload.readShortLE();
+				rcvPayload.readShortLE();
+				rcvPayload.readShortLE();
+				rcvPayload.readShortLE();
+
+				PlayerGameResult pResult = new PlayerGameResult(gold, bonusGold, gp, bonusGp);
+
+				System.out.println("pResult >>> SLOT: " + slot + " Valores: " + pResult);
+				room.setResultGameBySlot(slot, pResult);
+			}
+
+			// Trailer is not always 8 bytes in every client/version packet variant.
+			if (rcvPayload.readableBytes() >= 8) {
+				rcvPayload.skipBytes(8);
+			} else {
+				rcvPayload.skipBytes(rcvPayload.readableBytes());
+			}
+
+			ByteBuf buffer = Unpooled.EMPTY_BUFFER;
 
 			for (Map.Entry<Integer, PlayerSession> entry : room.getPlayersBySlot().entrySet()) {
 				PlayerSession player = entry.getValue();
+				applyAndPersistMatchRewards(room, player);
 				//int playerTxSum = player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
 				ByteBuf confirmationPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION, buffer,false);
 				player.getPlayerCtxChannel().writeAndFlush(confirmationPacket);
+				// Push immediate client refresh for currency (gold/cash) without relogin.
+				CashUpdateReader.read(player.getPlayerCtx(), null);
+				// Push state packet containing GP fields (TotalScore/SeasonScore).
+				LoginReader.pushSessionStatsRefresh(player);
 
 			}
 
@@ -106,11 +131,35 @@ public class GameResultReader {
 			System.err.println("Error processing match result");
 			e.printStackTrace();
 		} finally {
-			buffer.release();
+			if (rcvPayload.refCnt() > 0) {
+				rcvPayload.release();
+			}
 		}
 		
 		//announceScorePlayer(room);
 		room.isGameStarted(false);// sala deixa de estar em estado playing
+		room.resetEndGameFlag();
+		room.cleanResultGameBySlot();
+	}
+
+	private static void applyAndPersistMatchRewards(GameRoom room, PlayerSession player) {
+		int slot = room.getSlotPlayer(player);
+		PlayerGameResult result = room.getResultGameBySlot().get(slot);
+		if (result == null) {
+			return;
+		}
+
+		int goldDelta = result.getNormalGold() + result.getBonusGold();
+		int gpDelta = result.getNormalGp() + result.getBonusGp();
+
+		// Keep session values in sync for subsequent packets/lobby updates.
+		player.setGold(player.getGold() + goldDelta);
+		player.setTotalScore(player.getTotalScore() + gpDelta);
+		player.setSeasonScore(player.getSeasonScore() + gpDelta);
+
+		// Persist rewards to database.
+		UserDAO userDAO = DAOFactory.CreateUserDao();
+		userDAO.updateAddGoldAndGp(player.getUserNameId(), goldDelta, gpDelta);
 	}
 
 	//This is Just used on Season 2 Versions.

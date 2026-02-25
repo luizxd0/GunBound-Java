@@ -185,22 +185,24 @@ public class GunBoundGameHandler extends ChannelInboundHandlerAdapter {
 	 */
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-		System.err.println("GS: Exceção no Game Server para " + ctx.channel().remoteAddress() + ":");
+		System.err.println("GS: Exception on Game Server for " + ctx.channel().remoteAddress() + ":");
 		PlayerSession ps = PlayerSessionManager.getInstance().getPlayer(ctx.channel());
-		
-		GunBoundLobbyManager.getInstance().playerLeaveLobby(ps);
-		RoomManager.getInstance().handlePlayerLeave(ps);
-		connectionManager.removeConnection(ctx.channel());
 
+		if (ps != null) {
+			GunBoundLobbyManager.getInstance().playerLeaveLobby(ps);
+			RoomManager.getInstance().handlePlayerLeave(ps);
+		}
+		connectionManager.removeConnection(ctx.channel());
 		PlayerSessionManager.getInstance().removePlayer(ctx.channel());
 
-		if (ps.getNickName() == null) {
-			System.err.println("GS: Exceção no Game Server para o Player desconhecido");
+		if (ps == null) {
+			System.err.println("GS: Exception for connection (no session yet, e.g. DB login failed). Check db.properties and DB access.");
+		} else if (ps.getNickName() == null) {
+			System.err.println("GS: Exception for unknown player");
 		} else {
-			System.err.println("GS: Exceção no Game Server para o Player " + ps.getNickName());
+			System.err.println("GS: Exception for player " + ps.getNickName());
 		}
 		cause.printStackTrace();
-	
-		ctx.close(); // Fecha a conexão em caso de erro.
+		ctx.close();
 	}
 }

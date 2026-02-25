@@ -35,6 +35,7 @@ import br.com.gunbound.emulator.packets.readers.room.gameplay.GameReturnRoomResu
 import br.com.gunbound.emulator.packets.readers.shop.AvatarPlayerBuyReader;
 import br.com.gunbound.emulator.packets.readers.shop.AvatarPlayerConfirmReader;
 import br.com.gunbound.emulator.packets.readers.shop.AvatarPlayerOwnReader;
+import br.com.gunbound.emulator.packets.readers.shop.AvatarPlayerSellReader;
 import br.com.gunbound.emulator.packets.readers.shop.AvatarPlayerSortReader;
 import io.netty.channel.ChannelHandlerContext;
 
@@ -82,6 +83,8 @@ public class OpcodeReaderFactory {
         readers.put(0x600A, AvatarPlayerSortReader::read);//Avatar (Re)Order
         readers.put(0x600E, AvatarPlayerConfirmReader::read);//Avatar Confirm
         readers.put(0x6020, AvatarPlayerBuyReader::read);//Avatar Buying
+        readers.put(0x6022, AvatarPlayerSellReader::read);//Avatar Selling (legacy)
+        readers.put(0x6024, AvatarPlayerSellReader::read);//Avatar Selling
         
         
         readers.put(0x5010, MessageBcmReader::read);//Broadcast msg

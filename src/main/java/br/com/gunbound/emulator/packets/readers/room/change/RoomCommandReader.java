@@ -8,6 +8,7 @@ import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.packets.readers.MessageBcmReader;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.room.RoomManager;
+import br.com.gunbound.emulator.room.model.enums.GameMode;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.Utils;
 import io.netty.buffer.ByteBuf;
@@ -39,16 +40,31 @@ public class RoomCommandReader {
 		String[] commandParts = Utils.stringDecode(request).split(" ", 2);//limita comando em 2 partes
 		String command = commandParts[0];
 		String paramCmd = commandParts.length > 1 ? commandParts[1] : ""; // Valor padrão vazio caso não haja parâmetro
+		String normalizedCommand = command.startsWith("/") ? command.substring(1) : command;
 		System.out.println("COMMAND: " + command);
+		GameRoom room = player.getCurrentRoom();
+		if (room == null) {
+			return;
+		}
 
-		if (command.equals("close")) {
-			GameRoom room = player.getCurrentRoom();
+		if (normalizedCommand.equals("close")) {
 			// deixa fechar se for Master (alterar para authority > 99
 			checkIfaRoomMaster(player, room);
 			MessageBcmReader.printMsgToPlayer(player, "The Room Was Closed");
 			room.submitAction(() -> closeRoom(player, room),ctx);
-		} else if (command.equals("bcm")) {
+		} else if (normalizedCommand.equals("bcm")) {
 			MessageBcmReader.broadcastSendMessage(paramCmd);
+		} else if (normalizedCommand.equals("start")) {
+			if (!player.equals(room.getRoomMaster())) {
+				MessageBcmReader.printMsgToPlayer(player, "Only room master can start.");
+				return;
+			}
+			if (room.getGameMode() != GameMode.JEWEL.getId()) {
+				MessageBcmReader.printMsgToPlayer(player, "/start is only allowed in Jewel mode.");
+				return;
+			}
+			MessageBcmReader.printMsgToPlayer(player, "Starting Jewel game...");
+			room.submitAction(() -> room.startGame(new byte[0]), ctx);
 		}else {
 			MessageBcmReader.printMsgToPlayer(player, "ADMIN >> Unknown Command");
 		}

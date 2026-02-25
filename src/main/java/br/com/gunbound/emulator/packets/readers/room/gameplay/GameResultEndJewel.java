@@ -7,6 +7,7 @@ import org.mariadb.jdbc.plugin.authentication.standard.ed25519.Utils;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.CashUpdateReader;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.crypto.GunBoundCipher;
@@ -77,10 +78,13 @@ public class GameResultEndJewel {
 				ByteBuf finalPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION,
 						Unpooled.wrappedBuffer(encryptedPayload),false);
 
-				// Enviando packet
-				player.getPlayerCtxChannel().eventLoop().execute(() -> {
-					player.getPlayerCtxChannel().writeAndFlush(finalPacket);
-				});
+				// Jewel flow is sensitive to packet order: send match-end confirmation first.
+				player.getPlayerCtxChannel().writeAndFlush(finalPacket);
+
+				// Refresh account/session stats only after the client processes 0x4410.
+				player.getPlayerCtxChannel().eventLoop().schedule(() -> {
+					CashUpdateReader.read(player.getPlayerCtx(), null);
+				}, 150, java.util.concurrent.TimeUnit.MILLISECONDS);
 
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
@@ -88,6 +92,11 @@ public class GameResultEndJewel {
 			}
 
 		}
+
+		// Same as regular result flow: mark room as waiting again after match end.
+		room.isGameStarted(false);
+		room.resetEndGameFlag();
+		System.out.println("Jewel match finished. Room " + (room.getRoomId() + 1) + " returned to waiting state.");
 
 	}
 }

@@ -159,6 +159,25 @@ public class LoginReader {
 
 	}
 
+	/**
+	 * Re-sends the login state packet (0x1012) for an already authenticated session.
+	 * Useful to refresh client-side GP/Gold fields without forcing relogin.
+	 */
+	public static void pushSessionStatsRefresh(PlayerSession session) {
+		if (session == null || session.getPlayerCtxChannel() == null) {
+			return;
+		}
+		try {
+			ByteBuf loginPayload = writeLoginSuccess(session, session.getAuthToken());
+			ByteBuf finalPacket = PacketUtils.generatePacket(session, LOGIN_SUCCESS, loginPayload, false);
+			session.getPlayerCtxChannel().writeAndFlush(finalPacket);
+			System.out.println("Session stats refresh packet (0x1012) sent to " + session.getNickName());
+		} catch (Exception e) {
+			System.err.println("Failed to push session stats refresh (0x1012): " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+
 	private static ByteBuf writeLoginSuccess(PlayerSession session, byte[] authToken)
 			throws InvalidKeyException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException,
 			BadPaddingException, IOException {
