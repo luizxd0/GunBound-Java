@@ -181,7 +181,7 @@ Thanks a lot Rizzo!
 
 ###### Do you just wanna Play? Join us!
 
-[GunBound Legacy Project](http://www.gunbound.site).
+[Gunbound Classic Project](http://www.gunbound.site).
 
 ## License
 

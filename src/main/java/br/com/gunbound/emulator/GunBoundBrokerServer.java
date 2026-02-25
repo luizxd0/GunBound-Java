@@ -139,8 +139,8 @@ public class GunBoundBrokerServer {
 
 		// --- Configure a lista de servidores aqui ---
 		List<ServerOption> serverOptions = new ArrayList<>();
-		serverOptions.add(new ServerOption("GunBound Legacy", "AVATAR OFF", "127.0.0.1", 8360, 0, 500, true));
-		serverOptions.add(new ServerOption("GunBound Legacy", "AVATAR ON", "127.0.0.1", 8361, 0, 100, true));
+		serverOptions.add(new ServerOption("Gunbound Classic", "AVATAR OFF", "127.0.0.1", 8360, 0, 500, true));
+		serverOptions.add(new ServerOption("Gunbound Classic", "AVATAR ON", "127.0.0.1", 8361, 0, 100, true));
 
 		// Esta lista simula as sessões de jogadores para calcular a ocupação.
 		// Em uma aplicação real, você a gerencia de forma mais robusta.

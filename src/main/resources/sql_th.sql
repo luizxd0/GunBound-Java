@@ -119,54 +119,6 @@ INSERT INTO `user` (`Id`, `UserId`, `Gender`, `Password`, `Status`, `MuteTime`, 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40111 SET SQL_NOTES=IFNULL(@OLD_SQL_NOTES, 1) */;
 
--- --------------------------------------------------------
--- Host:                         127.0.0.1
--- Server version:               11.7.2-MariaDB - mariadb.org binary distribution
--- Server OS:                    Win64
--- HeidiSQL Version:             12.10.0.7000
--- --------------------------------------------------------
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET NAMES utf8 */;
-/*!50503 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-
--- Dumping structure for table gbth.chest
-CREATE TABLE IF NOT EXISTS `chest` (
-  `Idx` int(10) NOT NULL AUTO_INCREMENT,
-  `Item` int(11) NOT NULL,
-  `Wearing` varchar(1) DEFAULT '0',
-  `Acquisition` varchar(1) DEFAULT '0',
-  `Expire` datetime DEFAULT NULL,
-  `Volume` tinyint(1) DEFAULT NULL,
-  `PlaceOrder` varchar(50) DEFAULT '0',
-  `Recovered` varchar(50) DEFAULT '0',
-  `OwnerId` varchar(16) NOT NULL,
-  `ExpireType` varchar(255) DEFAULT NULL,
-  PRIMARY KEY (`Idx`) USING BTREE,
-  KEY `OwnerId` (`OwnerId`),
-  CONSTRAINT `fk_chest_owner` FOREIGN KEY (`OwnerId`) REFERENCES `user` (`UserId`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=53 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Itens de inventário do jogador';
-
--- Dumping data for table gbth.chest: ~12 rows (approximately)
-INSERT INTO `chest` (`Idx`, `Item`, `Wearing`, `Acquisition`, `Expire`, `Volume`, `PlaceOrder`, `Recovered`, `OwnerId`, `ExpireType`) VALUES
-	(1, 98399, '0', 'C', NULL, 1, '0', '0', 'kyll3r', 'I'),
-	(2, 98305, '1', 'C', NULL, 1, '10000', '0', 'kyll3r', 'I'),
-	(3, 32769, '1', 'C', NULL, 1, '20000', '0', 'kyll3r', 'I'),
-	(33, 204801, '0', 'C', '2025-08-26 22:45:45', 1, '30000', '0', 'kyll3r', 'I'),
-	(45, 32786, '0', 'G', NULL, 1, '40000', '0', 'kyll3r', 'I'),
-	(46, 32861, '0', 'G', NULL, 1, '50000', '0', 'kyll3r', 'I'),
-	(47, 98305, '0', 'C', NULL, 1, '10000', '0', 'test1', 'I'),
-	(48, 32769, '0', 'C', NULL, 1, '20000', '0', 'test1', 'I'),
-	(49, 32769, '0', 'C', NULL, 1, '20000', '0', 'br', 'I'),
-	(50, 98305, '0', 'C', NULL, 1, '10000', '0', 'br', 'I'),
-	(51, 32769, '1', 'C', NULL, 1, '20000', '0', 'test', 'I'),
-	(52, 98305, '1', 'C', NULL, 1, '10000', '0', 'test', 'I');
-
 -- Dumping structure for table gbth.menu
 CREATE TABLE IF NOT EXISTS `menu` (
   `Idx` int(11) NOT NULL AUTO_INCREMENT,

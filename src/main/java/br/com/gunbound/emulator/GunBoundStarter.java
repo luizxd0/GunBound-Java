@@ -13,7 +13,7 @@ import br.com.gunbound.emulator.model.entities.ServerOption;
 public class GunBoundStarter {
     private static final int BROKER_PORT = 8400;
     private static final int GAME_SERVER_PORT = 8360;
-    private static final String SERVER_HOST = "192.168.0.111"; // Escuta em todas as interfaces de rede
+    private static final String SERVER_HOST = "127.0.0.1"; // Use 127.0.0.1 for local test; 0.0.0.0 or your IP for LAN
 
 	public static void main(String[] args) {
 		// Usa um ExecutorService para iniciar o broker e o game server em threads
@@ -30,7 +30,7 @@ public class GunBoundStarter {
 		List<ServerOption> serverOptions = new ArrayList<>();
 		try {
 			// Adiciona o servidor de jogo local à lista que o broker irá mostrar.
-			serverOptions.add(new ServerOption("GunBound Legacy", "Avatar OFF", "192.168.0.111",
+			serverOptions.add(new ServerOption("Gunbound Classic", "Avatar OFF", "127.0.0.1",
 					GAME_SERVER_PORT, 0, 500, true));
 		} catch (Exception e) {
 			System.err.println("Erro ao criar ServerOption para o Game Server: " + e.getMessage());

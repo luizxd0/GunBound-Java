@@ -160,7 +160,7 @@ public class LobbyJoin {
 		ArrayList<PlayerSession> usersInLobby = new ArrayList<>(playersInLobby);
 
 		String clientVersion = String.valueOf(player.getPlayerCtxChannel().attr(GameAttributes.CLIENT_VERSION).get());
-		String motd = "#GunBound Legacy Thor's Hammer"; // Mensagem do dia (pode ser configurável)
+		String motd = "#Gunbound Classic Thor's Hammer"; // Mensagem do dia (pode ser configurável)
 
 		// Cria o objeto do pacote com os dados
 		JoinChannelSuccessPacket joinPacketData = new JoinChannelSuccessPacket(channelId, newPosition, 
