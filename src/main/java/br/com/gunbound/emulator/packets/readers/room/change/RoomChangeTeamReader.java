@@ -38,7 +38,7 @@ public class RoomChangeTeamReader {
 
 			// 2. Atualiza o time na sessão do jogador.
 			player.setRoomTeam(newTeam);
-			System.out.println(player.getNickName() + " mudou para o time " + (newTeam == 0 ? "A" : "B"));
+			System.out.println(player.getNickName() + " switched to team " + (newTeam == 0 ? "A" : "B"));
 
 			// 3. Envia um pacote de confirmação VAZIO de volta ao jogador (0x3211).
 			//int playerTxSum = player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
@@ -53,7 +53,7 @@ public class RoomChangeTeamReader {
 			// room.broadcastFullState(); acho que nao tem necessidade disso nao
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar mudança de time:");
+			System.err.println("Error processing team change:");
 			e.printStackTrace();
 		} finally {
 			request.release();

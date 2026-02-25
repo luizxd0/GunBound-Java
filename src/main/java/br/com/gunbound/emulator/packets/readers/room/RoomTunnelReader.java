@@ -50,7 +50,7 @@ public class RoomTunnelReader {
             int destinationSlot = request.readUnsignedByte();
 
             if (request.readableBytes() <= 0) {
-                System.err.println("TUNNEL: Pacote recebido sem dados de jogo após o slot de destino.");
+                System.err.println("TUNNEL: Packet received with no game data after destination slot.");
                 return;
             }
 
@@ -60,7 +60,7 @@ public class RoomTunnelReader {
 
             PlayerSession destinationPlayer = room.getPlayersBySlot().get(destinationSlot);
             if (destinationPlayer != null) {
-                System.out.println("TUNNEL: enviando pacote de: " + senderPlayer.getNickName() +
+                System.out.println("TUNNEL: sending packet from: " + senderPlayer.getNickName() +
                                    " SLOT [" + senderPlayer.getCurrentRoom().getSlotPlayer(senderPlayer) + "]" +
                                    " para: " + destinationPlayer.getNickName() + " SLOT [" + destinationSlot + "]");
 
@@ -75,10 +75,10 @@ public class RoomTunnelReader {
                  }, destinationPlayer.getPlayerCtx());
 
             } else {
-                System.err.println("TUNNEL: slot de destino inválido: " + destinationSlot);
+                System.err.println("TUNNEL: invalid destination slot: " + destinationSlot);
             }
         } catch (Exception e) {
-            System.err.println("Erro ao processar pacote de túnel (0x4500):");
+            System.err.println("Error processing tunnel packet (0x4500):");
             e.printStackTrace();
         } finally {
             request.release();
@@ -100,17 +100,17 @@ public class RoomTunnelReader {
             // Não libere forwardPacket -- Netty se encarrega via writeAndFlush
             recipient.getPlayerCtxChannel().writeAndFlush(forwardPacket).addListener((ChannelFutureListener) future -> {
                 if (!future.isSuccess()) {
-                    System.err.println("FALHA AO ENVIAR PACOTE DE TÚNEL para: " + recipient.getNickName());
+                    System.err.println("FAILED TO SEND TUNNEL PACKET to: " + recipient.getNickName());
                     future.cause().printStackTrace();
 
                     // Verifica se ainda há tentativas disponíveis
                     if (retryCount < MAX_RETRIES) {
-                        System.out.println("Tentativa de reenvio: " + (retryCount + 1) + " para " + recipient.getNickName());
+                        System.out.println("Retry attempt: " + (retryCount + 1) + " for " + recipient.getNickName());
                         recipient.getPlayerCtxChannel().eventLoop().schedule(
                                 () -> forwardPacketToPlayer(room, sender, recipient, data, retryCount + 1),
                                 RETRY_DELAY, TimeUnit.MILLISECONDS);
                     } else {
-                        System.out.println("Tentativas esgotadas, fechando conexão com: " + recipient.getNickName());
+                        System.out.println("Retries exhausted, closing connection to: " + recipient.getNickName());
                         recipient.getPlayerCtxChannel().close();
                     }
                 }

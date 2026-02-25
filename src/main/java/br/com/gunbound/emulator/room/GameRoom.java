@@ -400,7 +400,7 @@ public class GameRoom {
 		// Validação: Impede que jogadores entrem se a sala estiver cheia ou se o jogo
 		// já começou.
 		if (isFull() || isGameStarted) {
-			System.err.println("Tentativa falhou: Sala " + roomId + " cheia ou jogo em andamento.");
+			System.err.println("Attempt failed: Room " + roomId + " is full or game in progress.");
 			return -1;
 		}
 
@@ -419,7 +419,7 @@ public class GameRoom {
 		// 3. Associa a sala à sessão do jogador para fácil referência futura.
 		player.setCurrentRoom(this);
 
-		System.out.println("Jogador " + player.getNickName() + " entrou na sala " + roomId + " no slot " + newSlot
+		System.out.println("Player " + player.getNickName() + " joined room " + roomId + " in slot " + newSlot
 				+ " e time " + (player.getRoomTeam() == 0 ? "A" : "B"));
 
 		return newSlot;
@@ -455,7 +455,7 @@ public class GameRoom {
 			playersBySlot.remove(slotToRemove);
 			readyStatusBySlot.remove(slotToRemove);
 			player.setCurrentRoom(null); // Desassocia a sala do jogador
-			System.out.println("Player " + player.getNickName() + " saiu da sala " + roomId);
+			System.out.println("Player " + player.getNickName() + " left room " + roomId);
 
 			// Se o jogador que saiu era o dono da sala, elege um novo.
 			if (player.equals(roomMaster)) {
@@ -475,14 +475,14 @@ public class GameRoom {
 		if (playersBySlot.isEmpty()) {
 			this.roomMaster = null;
 			// A sala está vazia, pode ser destruída pelo RoomManager
-			System.out.println("Sala " + roomId + " está vazia e pode ser fechada.");
+			System.out.println("Room " + roomId + " is empty and can be closed.");
 		} else {
 			// Elegemos o jogador no menor slot ainda ocupado
 			int menorSlot = playersBySlot.keySet().stream().min(Integer::compareTo).orElse(-1);
 
 			if (menorSlot != -1) {
 				this.roomMaster = playersBySlot.get(menorSlot);
-				System.out.println("Novo dono da sala " + (roomId + 1) + ": " + this.roomMaster.getNickName());
+				System.out.println("New room owner for room " + (roomId + 1) + ": " + this.roomMaster.getNickName());
 			}
 
 		}
@@ -511,7 +511,7 @@ public class GameRoom {
 		this.resetEndGameFlag(); 
 
 		this.isGameStarted = true;
-		System.out.println("Iniciando jogo na sala " + (roomId + 1));
+		System.out.println("Starting game in room " + (roomId + 1));
 
 		// 1. Seleciona o mapa
 		if (this.mapId == 0) {
@@ -519,7 +519,7 @@ public class GameRoom {
 		}
 		MapData mapData = MapDataLoader.getMapById(this.mapId);
 		if (mapData == null) {
-			System.err.println("Mapa com ID " + this.mapId + " não encontrado!");
+			System.err.println("Map with ID " + this.mapId + " not found!");
 			return;
 		}
 
@@ -620,13 +620,13 @@ public class GameRoom {
 				// }, 500, java.util.concurrent.TimeUnit.MILLISECONDS);
 
 			} catch (Exception e) {
-				System.err.println("Falha ao criptografar ou enviar pacote de início para " + player.getNickName());
+				System.err.println("Failed to encrypt or send start packet to " + player.getNickName());
 				e.printStackTrace();
 			}
 		}
 
 		startPayload.release();
-		System.out.println("Pacotes de início de jogo enfileirados para " + getPlayerCount() + " jogadores.");
+		System.out.println("Game start packets queued for " + getPlayerCount() + " players.");
 	}
 
 	/**
@@ -641,7 +641,7 @@ public class GameRoom {
 		// O payload da notificação é vazio.
 		ByteBuf notifyPayload = Unpooled.EMPTY_BUFFER;
 
-		System.out.println("Iniciando broadcast de atualização (0x3105) para a sala " + this.roomId);
+		System.out.println("Starting update broadcast (0x3105) for room " + this.roomId);
 
 		// snapshot para evitar concorrência
 		List<PlayerSession> recipients = new ArrayList<>(getPlayersBySlot().values());
@@ -657,7 +657,7 @@ public class GameRoom {
 				submitAction(() -> 
 				playerInRoom.getPlayerCtxChannel().writeAndFlush(notifyPacket).addListener((ChannelFutureListener) future -> {
 					if (!future.isSuccess()) {
-						System.err.println("FALHA AO ENVIAR PACOTE DE TÚNEL para: " + playerInRoom.getNickName());
+						System.err.println("FAILED TO SEND TUNNEL PACKET to: " + playerInRoom.getNickName());
 						future.cause().printStackTrace();
 						// Caso o jogador nao esteja impossibilitado de receber pacotes.
 						playerInRoom.getPlayerCtxChannel().close();
@@ -670,7 +670,7 @@ public class GameRoom {
 				// });
 
 			} catch (Exception e) {
-				System.err.println("Falha ao enviar broadcast de atualização para " + playerInRoom.getNickName());
+				System.err.println("Failed to send update broadcast to " + playerInRoom.getNickName());
 				e.printStackTrace();
 			}
 		}
@@ -710,7 +710,7 @@ public class GameRoom {
 		}
 
 		notifyPayload.release();
-		System.out.println("Notificação de entrada (0x3010) enviada para " + (getPlayerCount() - 1) + " jogador(es).");
+		System.out.println("Join notification (0x3010) sent to " + (getPlayerCount() - 1) + " player(s).");
 	}
 
 	/**
@@ -757,7 +757,7 @@ public class GameRoom {
 		}
 
 		payload.release();
-		System.out.println("Notificação de saída do slot (0x3020) " + leftPlayerSlot + " enviada para a sala.");
+		System.out.println("Slot leave notification (0x3020) " + leftPlayerSlot + " sent to room.");
 	}
 
 	/**
@@ -808,7 +808,7 @@ public class GameRoom {
 		}
 
 		buffer.release();
-		System.out.println("Notificação de migração de host (0x3400) enviada para a sala.");
+		System.out.println("Host migration notification (0x3400) sent to room.");
 	}
 
 	// *****************************FILA PARA PROCESSAR A
@@ -855,7 +855,7 @@ public class GameRoom {
                 try {
                     act.task.run();
                 } catch (Exception e) {
-                    System.out.println("[ERRO] Exceção em Room Action: " + e.getMessage());
+                    System.out.println("[ERROR] Exception in Room Action: " + e.getMessage());
                     e.printStackTrace();
                 } finally {
                     nextAction();

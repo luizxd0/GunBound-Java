@@ -42,7 +42,7 @@ public class RoomSelectTankReader {
 
 		String primaryTankName = Tank.fromId(primaryTankId).getName();
 		String secondaryTankName = Tank.fromId(secondaryTankId).getName();
-		System.out.println(player.getNickName() + " selecionou: " + primaryTankName + " e " + secondaryTankName);
+		System.out.println(player.getNickName() + " selected: " + primaryTankName + " and " + secondaryTankName);
 
 		// 3. Enviar pacote de confirmação (0x3201)
 		// Conforme a referência, o pacote de resposta tem payload vazio. AQUI PODE TER

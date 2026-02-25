@@ -56,7 +56,7 @@ public class Utils {
 		byte[] idBytes = buffer.array();
 
 		System.out.println("ID de 4 bytes recebido: " + token);
-		System.out.println("Representação em bytes: " + Arrays.toString(idBytes));
+		System.out.println("Byte representation: " + Arrays.toString(idBytes));
 
 		return idBytes;
 	}

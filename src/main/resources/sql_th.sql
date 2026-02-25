@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS `chest` (
   PRIMARY KEY (`Idx`) USING BTREE,
   KEY `OwnerId` (`OwnerId`),
   CONSTRAINT `fk_chest_owner` FOREIGN KEY (`OwnerId`) REFERENCES `user` (`UserId`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Itens de inventário do jogador';
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Player inventory items';
 
 -- Dumping data for table gbth.chest: ~5 rows (approximately)
 INSERT INTO `chest` (`Idx`, `Item`, `Wearing`, `Acquisition`, `Expire`, `Volume`, `PlaceOrder`, `Recovered`, `OwnerId`, `ExpireType`) VALUES

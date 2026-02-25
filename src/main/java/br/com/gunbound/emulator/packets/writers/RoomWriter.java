@@ -142,7 +142,7 @@ public final class RoomWriter {
 			buffer.writeByte(room.isGameStarted() ? 1 : 0); // Estado do jogo (1=jogando, 0=esperando)
 			// buffer.writeBytes(new byte[] {00});
 			buffer.writeByte(room.isPrivate() ? 1 : 0); // Trancada (1=senha, 0=aberta)
-			System.out.println("[DEBUG] writeRoomList sala privada?: " + room.isPrivate());
+			System.out.println("[DEBUG] writeRoomList private room?: " + room.isPrivate());
 
 		}
 		buffer.writeBytes(new byte[] { 00 });// what? i dont know is padding?
@@ -210,7 +210,7 @@ public final class RoomWriter {
 			PlayerSession player = entry.getValue();
 			SpawnPoint spawn = spawnPoints.get(slot);
 
-			System.out.println("[DEBUG - writeGameStartPacketTest] Associando slot do player: " + player.getNickName()
+			System.out.println("[DEBUG - writeGameStartPacketTest] Associating slot for player: " + player.getNickName()
 					+ " [" + slot + "]");
 
 			buffer.writeByte(slot);

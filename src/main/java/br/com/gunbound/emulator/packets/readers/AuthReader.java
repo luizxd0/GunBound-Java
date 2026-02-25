@@ -35,7 +35,7 @@ public class AuthReader {
 		
 		
 
-		System.out.println("Token de 4 bytes gerado (positivo): " + Arrays.toString(authToken));
+		System.out.println("4-byte token generated (positive): " + Arrays.toString(authToken));
 
 		ByteBuf responsePayload = Unpooled.buffer();
 		responsePayload.writeBytes(authToken); // Bytes desconhecidos
@@ -44,7 +44,7 @@ public class AuthReader {
 		ctx.writeAndFlush(successPacket);
 		System.out.println("Token Test:" + Utils.bytesToHex(authToken));
 		responsePayload.release(); // Libere o payload após o uso (EH BOA PRATICA CHAPA)
-		System.out.println("GS: Resposta de handshake 0x1001 enviada.");
+		System.out.println("GS: Handshake response 0x1001 sent.");
 
 	}
 }

@@ -46,7 +46,7 @@ public class JoinRoomReader {
 		//int currentTxSum = ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
 
 		if (room == null || !room.checkPassword(password)) {
-			System.err.println("Jogador " + joiningPlayer.getNickName() + " falhou ao entrar na sala " + roomId
+			System.err.println("Player " + joiningPlayer.getNickName() + " failed to join room " + roomId
 					+ " (inválida ou senha incorreta).");
 
 			ByteBuf preparePayload = Unpooled.wrappedBuffer(new byte[] { (byte) 0x11, (byte) 0x00 });
@@ -59,7 +59,7 @@ public class JoinRoomReader {
 			// 3. Adicionar jogador à sala
 			int playerSlot = room.addPlayer(joiningPlayer);
 			if (playerSlot == -1) {
-				System.err.println("Sala " + roomId + " cheia. " + joiningPlayer.getNickName() + " não pôde entrar.");
+				System.err.println("Room " + roomId + " is full. " + joiningPlayer.getNickName() + " could not join.");
 				ByteBuf preparePayload = Unpooled.wrappedBuffer(new byte[] { (byte) 0x01, (byte) 0x20 });
 				ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_JOIN_SUCCESS, preparePayload,false);
 				ctx.writeAndFlush(preparePacket);
@@ -81,7 +81,7 @@ public class JoinRoomReader {
 			writeFuture.addListener((ChannelFutureListener) future -> {
 				if (future.isSuccess()) {
 					// NESTE PONTO, TEMOS A GARANTIA QUE O PacketSizeTracker RODOU.
-					System.out.println("Pacote de preparação (0x21F5) enviado com sucesso.");
+					System.out.println("Preparation packet (0x21F5) sent successfully.");
 
 					// 3. AGORA, com o tx_sum atualizado, enviamos o segundo pacote.
 					//int updatedTxSum = ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
@@ -98,7 +98,7 @@ public class JoinRoomReader {
 
 				} else {
 					// Se o envio do primeiro pacote falhar, logamos o erro.
-					System.err.println("Falha ao enviar pacote de preparação (0x21F5).");
+					System.err.println("Failed to send preparation packet (0x21F5).");
 					future.cause().printStackTrace();
 					ctx.close();
 				}
@@ -108,7 +108,7 @@ public class JoinRoomReader {
 			GunBoundLobbyManager.getInstance().playerLeaveLobby(joiningPlayer);
 
 		} catch (Exception e) {
-			System.err.println("Erro fatal ao processar entrada na sala:");
+			System.err.println("Fatal error processing room join:");
 			e.printStackTrace();
 			ctx.close();
 		}
@@ -166,10 +166,10 @@ public class JoinRoomReader {
 		buffer.writeByte(room.getPlayerCount());
 
 		// 4. Loop para cada jogador na sala
-		System.out.println("[MAPA DA SALA] no RoomWriter");
+		System.out.println("[ROOM MAP] in RoomWriter");
 		for (Map.Entry<Integer, PlayerSession> entry : room.getPlayersBySlot().entrySet()) {
 
-			System.out.println("[Entrou no for] no RoomWriter");
+			System.out.println("[Entered for loop] in RoomWriter");
 			int slot = entry.getKey();
 			PlayerSession player = entry.getValue();
 

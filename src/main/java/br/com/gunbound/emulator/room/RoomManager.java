@@ -9,25 +9,22 @@ import java.util.concurrent.PriorityBlockingQueue;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 
 /**
- * Gerencia todas as salas de jogo (GameRooms) ativas no servidor. utiliza
- * PriorityBlockingQueue para gerenciar os IDs (pega o menor) de forma
- * thread-safe.
+ * Manages all active game rooms (GameRooms) on the server. Uses
+ * PriorityBlockingQueue to manage IDs (takes the smallest) in a thread-safe way.
  */
 public final class RoomManager {
 
 	private static final RoomManager INSTANCE = new RoomManager();
-	private static final int MAX_ROOMS = 1000; // Define o número máximo de salas
+	private static final int MAX_ROOMS = 1000; // Maximum number of rooms
 
-	// Mapeia o ID da sala para a sua instância.
+	// Maps room ID to its instance.
 	private final Map<Integer, GameRoom> activeRooms = new ConcurrentHashMap<>();
 
-	// Fila thread-safe que mantém os IDs disponíveis, sempre oferecendo o menor
-	// primeiro.
+	// Thread-safe queue of available IDs, always offering the smallest first.
 	private final PriorityBlockingQueue<Integer> availableRoomIds;
 
 	/**
-	 * Construtor privado para reforçar o padrão Singleton. Inicializa a fila com
-	 * todos os IDs de sala possíveis.
+	 * Private constructor for Singleton. Initializes the queue with all possible room IDs.
 	 */
 	private RoomManager() {
 		availableRoomIds = new PriorityBlockingQueue<>(MAX_ROOMS);
@@ -41,18 +38,17 @@ public final class RoomManager {
 	}
 
 	/**
-	 * Cria uma nova sala de jogo, utilizando o menor ID disponível da fila.
-	 * 
-	 * @return A instância da GameRoom recém-criada, ou null se não houver IDs
-	 *         disponíveis.
+	 * Creates a new game room using the smallest available ID from the queue.
+	 *
+	 * @return The newly created GameRoom instance, or null if no IDs are available.
 	 */
 	public GameRoom createRoom(PlayerSession creator, String title, String password, int capacity) {
-		// Pega o menor ID disponível da fila de forma atômica e segura.
+		// Atomically take the smallest available ID from the queue.
 		Integer roomId = availableRoomIds.poll();
 
 		if (roomId == null) {
-			System.err.println("ROOM MANAGER: Não há IDs de sala disponíveis. Limite máximo atingido.");
-			return null; // Nenhuma sala pôde ser criada
+			System.err.println("ROOM MANAGER: No room IDs available. Maximum limit reached.");
+			return null;
 		}
 
 		GameRoom room = new GameRoom(roomId, title, creator, capacity);
@@ -62,28 +58,28 @@ public final class RoomManager {
 		}
 
 		activeRooms.put(roomId, room);
-		System.out.println("ROOM MANAGER: Sala criada por " + creator.getNickName() + " com o ID " + roomId);
+		System.out.println("ROOM MANAGER: Room created by " + creator.getNickName() + " with ID " + roomId);
 		return room;
 	}
 
 	/**
-	 * Remove uma sala do gerenciador e devolve seu ID para a fila.
-	 * 
-	 * @param roomId O ID da sala a ser removida.
+	 * Removes a room from the manager and returns its ID to the queue.
+	 *
+	 * @param roomId The ID of the room to remove.
 	 */
 	public void removeRoom(int roomId) {
 		GameRoom room = activeRooms.remove(roomId);
 		if (room != null) {
-			// Devolve o ID para a fila de forma segura para que possa ser reutilizado.
+			// Return the ID to the queue so it can be reused.
 			availableRoomIds.add(roomId);
-			System.out.println("ROOM MANAGER: Sala " + roomId + " removida e ID liberado.");
+			System.out.println("ROOM MANAGER: Room " + roomId + " removed and ID released.");
 		}
 	}
 
 	/**
-	 * Lida com a desconexão de um jogador.
-	 * 
-	 * @param player O jogador que desconectou.
+	 * Handles a player disconnecting.
+	 *
+	 * @param player The player who disconnected.
 	 */
 	public void handlePlayerLeave(PlayerSession player) {
 		if (player == null)
@@ -94,53 +90,39 @@ public final class RoomManager {
 		if (room != null) {
 			boolean wasHost = room.getRoomMaster().equals(player);
 
-			// 1. Remove o jogador e descobre qual slot ele ocupava.
+			// 1. Remove the player and find which slot they occupied.
 			int removedPlayerSlot = room.removePlayer(player);
 
 			if (room.getPlayerCount() == 0) {
-				// 2. Se a sala ficou vazia, remove-a.
+				// 2. If the room is empty, remove it.
 				removeRoom(room.getRoomId());
 			} else if (removedPlayerSlot != -1) {
-				// 3. Se a sala não ficou vazia:
-				
-				// Notifica a todos sobre o slot que foi liberado.
-				//room.submitAction(() -> room.notifyPlayerLeft(removedPlayerSlot));
-				room.notifyPlayerLeft(removedPlayerSlot,wasHost);
-				
-				
-				// Se quem saiu era o host, notifica sobre a migração.
-				//if (wasHost) {
-					//System.out.println("[DEBUG]: Entrou no if de washost" );
-					//room.notifyHostMigration();
-					//room.submitAction(() -> room.notifyHostMigration());
-				//}
-				
-
+				// 3. If the room is not empty, notify everyone about the freed slot.
+				room.notifyPlayerLeft(removedPlayerSlot, wasHost);
 			}
 		}
 	}
 	/*
 	 * public boolean isPlayerInAnyRoom(PlayerSession player) { if (player == null)
 	 * { return false; } // A forma mais eficiente de verificar é checar se a sala
-	 * atual do jogador não é nula. return player.getCurrentRoom() != null; }
+	 * current room is not null. return player.getCurrentRoom() != null; }
 	 */
 
-	// Menos eficiente
+	// Less efficient: iterate all rooms
 	public boolean isPlayerInAnyRoom(PlayerSession player) {
 		if (player == null) {
 			return false;
 		}
-		// Itera por todas as salas ativas
+		// Iterate over all active rooms
 		for (GameRoom room : activeRooms.values()) {
-			// O método containsValue() é eficiente em ConcurrentHashMap
 			if (room.getPlayersBySlot().containsValue(player)) {
-				return true; // Encontrou o jogador
+				return true; // Found the player
 			}
 		}
-		return false; // Não encontrou o jogador em nenhuma sala
+		return false; // Player not found in any room
 	}
 
-	// --- Outros métodos ---
+	// --- Other methods ---
 
 	public GameRoom getRoomById(int roomId) {
 		return activeRooms.get(roomId);

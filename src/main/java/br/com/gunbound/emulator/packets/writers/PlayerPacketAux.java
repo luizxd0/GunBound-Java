@@ -46,7 +46,7 @@ public class PlayerPacketAux {
 			
 			//testando opcoes
 			ps.getPlayerCtxChannel().writeAndFlush(successPacket);
-			System.out.println("Chego aqui? Token Test:" + Utils.bytesToHex(authToken));
+			System.out.println("Token Test: " + Utils.bytesToHex(authToken));
 			// successPacket.release(); // Libera o payload após o uso. nao pode liberar
 			// aqui se não ferra a conexao
 
@@ -54,7 +54,7 @@ public class PlayerPacketAux {
 					.println("Pacote de cash (0x6101) enviado para " + ps.getNickName() + " com valor: " + cashAmount);
 			// successPacket.release(); //tambem nao pode liberar aqui
 		} catch (Exception e) {
-			System.err.println("Erro ao encriptar e enviar o pacote de cash: " + e.getMessage());
+			System.err.println("Error encrypting and sending cash packet: " + e.getMessage());
 			e.printStackTrace();
 		}
 

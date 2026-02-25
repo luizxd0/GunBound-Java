@@ -35,10 +35,10 @@ public class CashUpdateReader {
 				// Enviando packet
 				ctx.writeAndFlush(successPacket);
 
-				System.out.println("Comando de CASH_UPDATE enviado com sucesso para " + creator.getNickName());
+				System.out.println("CASH_UPDATE command sent successfully to " + creator.getNickName());
 
 			} catch (Exception e) {
-				System.err.println("Erro fatal ao decodificar o pacote do CASH_UPDATE");
+				System.err.println("Fatal error decoding CASH_UPDATE packet");
 				e.printStackTrace();
 				ctx.close();
 			} 

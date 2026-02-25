@@ -56,25 +56,25 @@ public class AvatarPlayerSortReader {
                     
                     boolean sucesso = factory.updatePlaceOrder(avatarId, String.valueOf(newPosition));
                     if (sucesso) {
-                        System.out.println("PlaceOrder atualizado com sucesso.");
+                        System.out.println("PlaceOrder updated successfully.");
                     } else {
-                        System.out.println("Falha ao atualizar PlaceOrder.");
+                        System.out.println("Failed to update PlaceOrder.");
                     }
                     
-                    System.out.println(" -> Avatar ID " + avatarId + " movido para a posição " + newPosition);
+                    System.out.println(" -> Avatar ID " + avatarId + " moved to position " + newPosition);
                 } else {
-                    System.err.println(" -> AVISO: O jogador " + player.getNickName() + " tentou reordenar um avatar (ID: " + avatarId + ") que não possui.");
+                    System.err.println(" -> WARNING: Player " + player.getNickName() + " tried to reorder an avatar (ID: " + avatarId + ") they do not own.");
                 }
 			}
 
 			// 4. (Para Debug) Imprime a lista de avatares reordenados
-			System.out.println("Lista de reordenação recebida:");
+			System.out.println("Reorder list received:");
 			for (PlayerAvatar info : reorderedAvatars) {
 				System.out.println(" -> " + info.getIdx() + " POSITION: " + info.getPlaceOrder());
 			}
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar reordenação de avatares:");
+			System.err.println("Error processing avatar reorder:");
 			e.printStackTrace();
 		} finally {
 			request.release();

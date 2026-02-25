@@ -67,7 +67,7 @@ public class RoomCommandReader {
 			playerInRoom.getPlayerCtxChannel().writeAndFlush(confirmationPacket)
 					.addListener((ChannelFutureListener) future -> {
 						if (!future.isSuccess()) {
-							System.err.println("Falha ao fechar sala para: " + playerInRoom.getNickName());
+							System.err.println("Failed to close room for: " + playerInRoom.getNickName());
 							future.cause().printStackTrace();
 							// Caso o jogador nao esteja impossibilitado de receber pacotes.
 							playerInRoom.getPlayerCtxChannel().close();

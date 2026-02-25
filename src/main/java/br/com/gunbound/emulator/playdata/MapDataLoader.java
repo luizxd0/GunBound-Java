@@ -17,47 +17,47 @@ public class MapDataLoader {
 	private static final Map<Integer, MapData> MAPS_BY_ID;
 
 	static {
-		System.out.println("Carregando dados dos mapas do arquivo map_data.json...");
+		System.out.println("Loading map data from map_data.json...");
 		List<MapData> loadedMaps = Collections.emptyList();
 		Gson gson = new Gson();
 
-		// Define o tipo que esperamos: uma Lista de MapData
+		// Expected type: a List of MapData
 		Type mapListType = new TypeToken<List<MapData>>() {
 		}.getType();
 
-		// Tenta ler o arquivo a partir da pasta 'resources'
+		// Try to read the file from the 'resources' folder
 		try (InputStream is = MapDataLoader.class.getClassLoader().getResourceAsStream("map_data.json")) {
 			if (is == null) {
-				System.err.println("ERRO CRÍTICO: Não foi possível encontrar o arquivo map_data.json nos recursos!");
+				System.err.println("CRITICAL ERROR: Could not find map_data.json in resources!");
 			} else {
 				InputStreamReader reader = new InputStreamReader(is);
 				loadedMaps = gson.fromJson(reader, mapListType);
 			}
 		} catch (Exception e) {
-			System.err.println("ERRO CRÍTICO: Falha ao carregar ou analisar o map_data.json!");
+			System.err.println("CRITICAL ERROR: Failed to load or parse map_data.json!");
 			e.printStackTrace();
 		}
 
-		// Converte a lista para um mapa para buscas rápidas por ID
+		// Convert the list to a map for fast lookups by ID
 		MAPS_BY_ID = loadedMaps.stream().collect(Collectors.toMap(MapData::getMapId, Function.identity()));
 
-		System.out.println(MAPS_BY_ID.size() + " mapas foram carregados com sucesso.");
+		System.out.println(MAPS_BY_ID.size() + " maps loaded successfully.");
 	}
 
 	/**
-	 * Obtém os dados de um mapa pelo seu ID.
-	 * 
-	 * @param mapId O ID do mapa.
-	 * @return O objeto MapData correspondente, ou null se não for encontrado.
+	 * Gets map data by its ID.
+	 *
+	 * @param mapId The map ID.
+	 * @return The corresponding MapData object, or null if not found.
 	 */
 	public static MapData getMapById(int mapId) {
 		return MAPS_BY_ID.get(mapId);
 	}
 
 	/**
-	 * Retorna uma lista com todos os mapas carregados.
-	 * 
-	 * @return Uma lista de todos os MapData.
+	 * Returns a list of all loaded maps.
+	 *
+	 * @return A list of all MapData.
 	 */
 	public static List<MapData> getAllMaps() {
 		return List.copyOf(MAPS_BY_ID.values());

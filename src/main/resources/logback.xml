@@ -8,14 +8,14 @@
         </encoder>
     </appender>
 
-    <!-- Rolling file appender: um arquivo por hora -->
+    <!-- Rolling file appender: one file per hour -->
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>logs/server.log</file>
 
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- arquivo gerado a cada hora -->
+            <!-- new file every hour -->
             <fileNamePattern>logs/server-%d{yyyy-MM-dd_HH}.log</fileNamePattern>
-            <maxHistory>168</maxHistory> <!-- mantém logs das últimas 7 dias (7*24h) -->
+            <maxHistory>168</maxHistory> <!-- keep logs for the last 7 days (7*24h) -->
         </rollingPolicy>
 
         <encoder>

@@ -35,7 +35,7 @@ public class RoomChangeOptionReader {
 
 		System.out.println("[DEBUG] RoomChangeOptionReader: " + config);
 		room.setGameSettings(config);
-		System.out.println("Room " + room.getRoomId() + " opções de jogo alteradas.");
+		System.out.println("Room " + room.getRoomId() + " game options changed.");
 		
 		
 		short gameModeId = (short) (config >> 16);

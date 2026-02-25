@@ -35,10 +35,10 @@ public class GoldUpdateReader {
 			// Enviando packet
 			ctx.writeAndFlush(successPacket);
 
-			System.out.println("Comando de GOLD_UPDATE enviado com sucesso para " + session.getNickName());
+			System.out.println("GOLD_UPDATE command sent successfully to " + session.getNickName());
 
 		} catch (Exception e) {
-			System.err.println("Erro fatal ao decodificar o pacote do GOLD_UPDATE");
+			System.err.println("Fatal error decoding GOLD_UPDATE packet");
 			e.printStackTrace();
 			ctx.close();
 		}

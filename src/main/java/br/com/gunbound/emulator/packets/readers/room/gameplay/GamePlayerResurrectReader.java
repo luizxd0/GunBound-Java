@@ -46,7 +46,7 @@ public class GamePlayerResurrectReader {
 
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar pacote de Ressureição " + e.getMessage());
+			System.err.println("Error processing Resurrection packet: " + e.getMessage());
 			e.printStackTrace();
 		}
 	}

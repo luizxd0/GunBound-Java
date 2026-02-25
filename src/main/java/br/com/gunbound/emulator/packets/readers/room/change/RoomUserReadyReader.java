@@ -49,7 +49,7 @@ public class RoomUserReadyReader {
 			if (playerSlot != -1) {
 				// 2. Atualiza o estado na sala.
 				room.setPlayerReady(playerSlot, isReady);
-				System.out.println(player.getNickName() + " está " + (isReady ? "Pronto" : "Não Pronto"));
+				System.out.println(player.getNickName() + " is " + (isReady ? "Ready" : "Not Ready"));
 			}
 
 			// 3. Envia um pacote de confirmação (0x3231) com rtc=0.
@@ -60,7 +60,7 @@ public class RoomUserReadyReader {
 
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar estado de 'Pronto':");
+			System.err.println("Error processing 'Ready' state:");
 			e.printStackTrace();
 		} finally {
 			request.release();

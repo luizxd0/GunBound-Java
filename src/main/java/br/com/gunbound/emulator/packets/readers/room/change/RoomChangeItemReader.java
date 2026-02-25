@@ -42,11 +42,11 @@ public class RoomChangeItemReader {
 			// update sem payload com RTC.
 			RoomWriter.writeRoomUpdate(player);
 
-			System.out.println("Notificação de atualização da sala (0x3105) enviada para " + room.getPlayerCount()
+			System.out.println("Room update notification (0x3105) sent to " + room.getPlayerCount()
 					+ " jogador(es).");
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar mudança de itens da sala:");
+			System.err.println("Error processing room item change:");
 			e.printStackTrace();
 		} finally {
 			request.release();

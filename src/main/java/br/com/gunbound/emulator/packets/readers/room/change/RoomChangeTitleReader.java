@@ -39,7 +39,7 @@ public class RoomChangeTitleReader {
 
 		// 2. Atualiza o título na instância da sala.
 		room.setTitle(newTitle);
-		System.out.println("RoomID: " + room.getRoomId() + ", novo título da sala: '" + newTitle + "'");
+		System.out.println("RoomID: " + room.getRoomId() + ", new room title: '" + newTitle + "'");
 
 		// update sem payload com RTC.
 		RoomWriter.writeRoomUpdate(player);

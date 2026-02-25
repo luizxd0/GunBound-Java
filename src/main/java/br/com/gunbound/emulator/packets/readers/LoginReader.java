@@ -49,7 +49,7 @@ public class LoginReader {
 			// Decodifica a string, removendo o preenchimento nulo.
 			userId = new String(usernameDecryptedBytes, StandardCharsets.UTF_8).trim();
 		} catch (Exception e) {
-			System.err.println("Erro na descriptografia estática do nome de usuário: " + e.getMessage());
+			System.err.println("Error in static decryption of username: " + e.getMessage());
 			ctx.close();
 			return;
 		}
@@ -59,7 +59,7 @@ public class LoginReader {
 
 		// Valida se usuario existe
 		if (queriedUser == null) {
-			System.err.println("Usuario informado inexistente");
+			System.err.println("User not found");
 			sendPlayerAnError(ctx, currentTxSum);
 			return;
 		}
@@ -72,7 +72,7 @@ public class LoginReader {
 
 		byte[] authToken = ctx.channel().attr(GameAttributes.AUTH_TOKEN).get();
 		if (authToken == null) {
-			System.err.println("Token de autenticação não encontrado na sessão. Desconectando.");
+			System.err.println("Authentication token not found in session. Disconnecting.");
 			ctx.close();
 			return;
 		}
@@ -93,7 +93,7 @@ public class LoginReader {
 			receivedPassword = new String(passwordDecryptedPayload, 0, 12, StandardCharsets.ISO_8859_1).trim();
 
 		} catch (Exception e) {
-			System.err.println("Erro na descriptografia dinâmica da senha: " + e.getMessage());
+			System.err.println("Error in dynamic decryption of password: " + e.getMessage());
 			ctx.close();
 			return;
 		}

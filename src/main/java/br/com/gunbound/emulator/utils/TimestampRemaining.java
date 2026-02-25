@@ -78,7 +78,7 @@ public class TimestampRemaining {
         
         // Se a data já expirou
         if (timestampRestante <= 0) {
-            System.out.println("A data já expirou.");
+            System.out.println("The date has already expired.");
             return;
         }
 
@@ -86,11 +86,11 @@ public class TimestampRemaining {
         ByteBuf byteBuf = rightTimeOnByteBuf(timestampRestante);
 
         // Imprime o timestamp em Big Endian
-        System.out.println("Hexadecimal do ByteBuf (Big Endian):");
+        System.out.println("ByteBuf (Big Endian):");
         printTimeHexadecimal(byteBuf, false);
 
-        // Imprime o timestamp em Little Endian
-        System.out.println("Hexadecimal do ByteBuf (Little Endian):");
+        // Print timestamp in Little Endian
+        System.out.println("ByteBuf (Little Endian):");
         printTimeHexadecimal(byteBuf, true);
     }
 }

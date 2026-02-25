@@ -33,14 +33,14 @@ public class RoomDetailReader {
 			GameRoom room = RoomManager.getInstance().getRoomById(requestedRoomId);
 
 			if (room == null) {
-				System.err.println("O jogador " + player.getNickName() + " solicitou detalhes de uma sala inválida: "
+				System.err.println("Player " + player.getNickName() + " requested details for an invalid room: "
 						+ requestedRoomId);
 				// O cliente geralmente lida com isso não recebendo resposta, mas um pacote de
 				// erro poderia ser enviado.
 				return;
 			}
 
-			System.out.println("Encontrada sala " + requestedRoomId + " para detalhes.");
+			System.out.println("Found room " + requestedRoomId + " for details.");
 
 			// 3. Constrói e envia o pacote de resposta detalhado.
 			//int playerTxSum = player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
@@ -54,7 +54,7 @@ public class RoomDetailReader {
 			ctx.writeAndFlush(responsePacket);
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar detalhes da sala:");
+			System.err.println("Error processing room details:");
 			e.printStackTrace();
 		} finally {
 			request.release();

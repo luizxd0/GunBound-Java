@@ -40,7 +40,7 @@ public class AvatarPlayerConfirmReader {
 				isSucess = factory.updateAvatarWearing(avatarId, Integer.toString(iSwearing), null);
 
 				if (isSucess) {
-					System.out.println("Avatar: ["+avatarId+"] Wearing: "+iSwearing+" updated sucessfully");
+					System.out.println("Avatar: ["+avatarId+"] Wearing: "+iSwearing+" updated successfully");
 				} else {
 					{
 						System.out.println("Avatar: ["+avatarId+"] Wearing: "+iSwearing+" not updated");
@@ -50,7 +50,7 @@ public class AvatarPlayerConfirmReader {
 			}
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar reordenação de avatares:");
+			System.err.println("Error processing avatar reorder:");
 			e.printStackTrace();
 		} finally {
 			request.release();

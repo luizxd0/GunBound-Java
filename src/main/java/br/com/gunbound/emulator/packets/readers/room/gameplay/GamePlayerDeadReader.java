@@ -47,11 +47,11 @@ public class GamePlayerDeadReader {
 
 			ctx.writeAndFlush(confirmationPacket);
 
-			System.out.println("[DEBUG] Morte do Player: " + deadPlayer.getNickName() + " NO SLOT: "
+			System.out.println("[DEBUG] Player death: " + deadPlayer.getNickName() + " IN SLOT: "
 					+ deadPlayer.getCurrentRoom().getSlotPlayer(deadPlayer));
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar morte do jogador:");
+			System.err.println("Error processing player death:");
 			e.printStackTrace();
 		}
 		
@@ -60,7 +60,7 @@ public class GamePlayerDeadReader {
 	    if (room.isAscoreRoom()) {
 	        room.setScoreTeam(teamDeadPlayer);
 	        //log para debug:
-	        System.out.println("[DEBUG] Score atualizado para o time " + teamDeadPlayer +
+	        System.out.println("[DEBUG] Score updated for team " + teamDeadPlayer +
 	            ": " + (teamDeadPlayer == 0 ? room.getScoreTeamA() : room.getScoreTeamB()));
 	    }
 

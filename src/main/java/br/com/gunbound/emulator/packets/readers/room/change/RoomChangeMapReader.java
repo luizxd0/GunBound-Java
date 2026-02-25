@@ -38,7 +38,7 @@ public class RoomChangeMapReader {
 
 		// 2. Atualiza o mapa na instância da sala.
 		room.setMapId(newMapId);
-		System.out.println("RoomID: " + room.getRoomId() + ", mapa alterado para " + newMapId);
+		System.out.println("RoomID: " + room.getRoomId() + ", map changed to " + newMapId);
 
 		// update sem payload com RTC.
 		RoomWriter.writeRoomUpdate(player);

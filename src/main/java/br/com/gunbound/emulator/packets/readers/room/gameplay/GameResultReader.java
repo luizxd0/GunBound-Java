@@ -49,7 +49,7 @@ public class GameResultReader {
 			//processEndGame(room, decryptedPayload);
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar pacote ResultGame: " + e.getMessage());
+			System.err.println("Error processing ResultGame packet: " + e.getMessage());
 			e.printStackTrace();
 		}
 
@@ -103,7 +103,7 @@ public class GameResultReader {
 			
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar Resultado da partida");
+			System.err.println("Error processing match result");
 			e.printStackTrace();
 		} finally {
 			buffer.release();

@@ -80,7 +80,7 @@ public class RoomCreateReader {
 				password = "";
 
 				// Debug para avisar qeu a senha é "zoada"
-				System.out.println("[DEBUG] Senha invalida: " + new String(passwordBytes, StandardCharsets.ISO_8859_1));
+				System.out.println("[DEBUG] Invalid password: " + new String(passwordBytes, StandardCharsets.ISO_8859_1));
 			}
 			// ************************* FIM DO BYPASS DO BUG DA SENHA
 			// *************************
@@ -116,19 +116,19 @@ public class RoomCreateReader {
 			 * // Libera o buffer temporário otherData.release();
 			 */
 
-			System.out.println("Tentativa de criar sala: Título='" + title + "', Senha='" + password + "', Capacidade="
+			System.out.println("Attempt to create room: Title='" + title + "', Password='" + password + "', Capacity="
 					+ capacity);
 
 			// 5. Usa o RoomManager para criar a sala
 			GameRoom createdRoom = RoomManager.getInstance().createRoom(creator, title, password, capacity);
 
 			if (createdRoom == null) {
-				System.err.println("Falha ao criar a sala. Não há IDs disponíveis.");
+				System.err.println("Failed to create room. No IDs available.");
 				// TODO: Enviar pacote de erro para o cliente
 				return;
 			}
 
-			System.out.println("[SALA CRIADA] gamesettings: " + gameSettings);
+			System.out.println("[ROOM CREATED] gamesettings: " + gameSettings);
 			createdRoom.setGameSettings(gameSettings);
 			
 			//vamos usar isso aqui
@@ -141,15 +141,15 @@ public class RoomCreateReader {
 
 			ctx.writeAndFlush(successPacket);
 
-			System.out.println("Sala '" + title + "' criada com sucesso com ID " + createdRoom.getRoomId() + "', Modo="
+			System.out.println("Room '" + title + "' created successfully with ID " + createdRoom.getRoomId() + "', Mode="
 					+ gameModeEnum.getName());
 
 			// O jogador não pode estar no lobby e em uma sala ao mesmo tempo.
 			GunBoundLobbyManager.getInstance().playerLeaveLobby(creator); //
-			System.out.println("Jogador " + creator.getNickName() + " removido do lobby para entrar na sala.");
+			System.out.println("Player " + creator.getNickName() + " removed from lobby to enter room.");
 
 		} catch (Exception e) {
-			System.err.println("Erro fatal ao decodificar o pacote de criação de sala:");
+			System.err.println("Fatal error decoding room creation packet:");
 			e.printStackTrace();
 			ctx.close();
 		} finally {

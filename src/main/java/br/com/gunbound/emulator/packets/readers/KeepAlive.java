@@ -8,6 +8,6 @@ public class KeepAlive {
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		PlayerSession ps = ctx.channel().attr(GameAttributes.USER_SESSION).get();
 		
-		System.err.println("[KEEPALIVE] de: " + ps.getNickName());
+		System.err.println("[KEEPALIVE] from: " + ps.getNickName());
 	}
 }

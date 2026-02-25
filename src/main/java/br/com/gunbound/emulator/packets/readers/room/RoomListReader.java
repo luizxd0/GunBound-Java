@@ -40,7 +40,7 @@ public class RoomListReader {
 			}
 
 			String filterName = filterMode == 1 ? "ALL" : (filterMode == 2 ? "WAITING" : "UNKNOWN");
-			System.out.println("Filtro de sala: " + filterName + ", Índice Inicial Solicitado: " + startIndex);
+			System.out.println("Room filter: " + filterName + ", requested start index: " + startIndex);
 
 			// 2. Obter todas as salas e aplicar o filtro
 			Collection<GameRoom> allRooms = RoomManager.getInstance().getAllRooms();
@@ -74,7 +74,7 @@ public class RoomListReader {
 			ctx.writeAndFlush(responsePacket);
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar a lista de salas");
+			System.err.println("Error processing room list");
 			e.printStackTrace();
 		} finally {
 			request.release();

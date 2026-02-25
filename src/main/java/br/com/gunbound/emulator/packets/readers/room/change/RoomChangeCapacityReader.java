@@ -38,7 +38,7 @@ public class RoomChangeCapacityReader {
 
 		// 2. Atualiza a capacidade na instância da sala.
 		room.setCapacity(newCapacity);
-		System.out.println("RoomID: " + room.getRoomId() + ", nova capacidade da sala: " + newCapacity);
+		System.out.println("RoomID: " + room.getRoomId() + ", new room capacity: " + newCapacity);
 
 		// update sem payload com RTC.
 		RoomWriter.writeRoomUpdate(player);

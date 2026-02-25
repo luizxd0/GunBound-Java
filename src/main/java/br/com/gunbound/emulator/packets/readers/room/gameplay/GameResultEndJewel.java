@@ -52,7 +52,7 @@ public class GameResultEndJewel {
 			}, 2000, java.util.concurrent.TimeUnit.MILLISECONDS);
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar pacote de partida jewel: " + e.getMessage());
+			System.err.println("Error processing jewel match packet: " + e.getMessage());
 			e.printStackTrace();
 		}
 	}

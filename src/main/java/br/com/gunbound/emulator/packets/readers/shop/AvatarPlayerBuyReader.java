@@ -106,16 +106,16 @@ public class AvatarPlayerBuyReader {
 				//writeNewAvatar(ctx, factoryChestDAO, idNewAvatarOnChest); // desativado pelo hacky do PU
 				writeNewAvatar(ctx, avatar);
 
-				System.out.println("Recebida pedido de compra do Avatar : " + avatarData.getMenuName() + " [ "
+				System.out.println("Avatar purchase request received: " + avatarData.getMenuName() + " [ "
 						+ avatarCode + "] " + " Moeda: " + (goldOrCash == 0 ? "Gold" : "Cash") + " do jogador "
 						+ player.getNickName());
 
 			} else {
-				System.err.println("Não foi encontrado o avatar solicitado. ID: [" + avatarCode + "]");
+				System.err.println("Requested avatar not found. ID: [" + avatarCode + "]");
 			}
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar Compra de avatar");
+			System.err.println("Error processing avatar purchase");
 			e.printStackTrace();
 		} finally {
 			request.release();
@@ -162,7 +162,7 @@ public class AvatarPlayerBuyReader {
 			}
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar Adição de  de avatar(es) no shopping :");
+			System.err.println("Error processing avatar(s) addition to shop:");
 			e.printStackTrace();
 		}
 
