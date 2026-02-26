@@ -154,6 +154,10 @@ public class GamePlayerDeadReader {
 			}
 
 		}
+
+		// Fallback for clients/modes that do not send 0x4412 after 0x4410.
+		// If result packet arrives, GameResultReader will already finish the room.
+		room.scheduleMatchReturnFallback(2000, "GamePlayerDeadReader:0x4410");
 	}
 
 	private static void sendPacketWithEventLoop(PlayerSession player, ByteBuf finalPacket) {

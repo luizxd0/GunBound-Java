@@ -33,6 +33,12 @@ public class PlayerSession {
 
 	private int cash;
 	private int gold;
+	private int eventScore0;
+	private int eventScore1;
+	private int eventScore2;
+	private int eventScore3;
+	private int accumShot;
+	private int accumDamage;
 
 	// Avatares
 	private List<PlayerAvatar> playerAvatars = new ArrayList<PlayerAvatar>();
@@ -79,6 +85,12 @@ public class PlayerSession {
 
 		this.gold = user.getGold();
 		this.cash = user.getCash();
+		this.eventScore0 = user.getEventScore0();
+		this.eventScore1 = user.getEventScore1();
+		this.eventScore2 = user.getEventScore2();
+		this.eventScore3 = user.getEventScore3();
+		this.accumShot = user.getAccumShot();
+		this.accumDamage = user.getAccumDamage();
 		this.channelPosition = -1;
 
 		System.out.println("PlayerSession: Jogador: " + this.nickName + " Adicionado na Sessão");
@@ -217,6 +229,54 @@ public class PlayerSession {
 
 	public int getGuildRank() {
 		return guildRank;
+	}
+
+	public int getEventScore0() {
+		return eventScore0;
+	}
+
+	public void setEventScore0(int eventScore0) {
+		this.eventScore0 = eventScore0;
+	}
+
+	public int getEventScore1() {
+		return eventScore1;
+	}
+
+	public void setEventScore1(int eventScore1) {
+		this.eventScore1 = eventScore1;
+	}
+
+	public int getEventScore2() {
+		return eventScore2;
+	}
+
+	public void setEventScore2(int eventScore2) {
+		this.eventScore2 = eventScore2;
+	}
+
+	public int getEventScore3() {
+		return eventScore3;
+	}
+
+	public void setEventScore3(int eventScore3) {
+		this.eventScore3 = eventScore3;
+	}
+
+	public int getAccumShot() {
+		return accumShot;
+	}
+
+	public void setAccumShot(int accumShot) {
+		this.accumShot = accumShot;
+	}
+
+	public int getAccumDamage() {
+		return accumDamage;
+	}
+
+	public void setAccumDamage(int accumDamage) {
+		this.accumDamage = accumDamage;
 	}
 	
 	public ChannelHandlerContext getPlayerCtx() {

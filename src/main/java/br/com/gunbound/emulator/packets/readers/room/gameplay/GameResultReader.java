@@ -60,9 +60,11 @@ public class GameResultReader {
 	}
 
 	public static void processEndGame(GameRoom room, byte[] payload) {
-		// Avoid duplicated reward application if client resends result packet.
-		if (!room.tryTriggerEndGame()) {
-			System.out.println("ResultGame already processed for room " + (room.getRoomId() + 1) + ". Ignoring duplicate.");
+		// Some modes trigger endgame (0x4410) before 0x4412 arrives.
+		// Guard by room state instead of endGame flag so stats are still persisted.
+		if (!room.isGameStarted()) {
+			System.out.println("Ignoring 0x4412 for room " + (room.getRoomId() + 1)
+					+ " because it is already in waiting state.");
 			return;
 		}
 
@@ -92,11 +94,11 @@ public class GameResultReader {
 				rcvPayload.readShortLE();
 				int gp = rcvPayload.readShortLE();
 				int bonusGp = rcvPayload.readShortLE();
-				rcvPayload.readShortLE();
-				rcvPayload.readShortLE();
+				int shot = rcvPayload.readUnsignedShortLE();
+				int damage = rcvPayload.readUnsignedShortLE();
 				rcvPayload.readShortLE();
 
-				PlayerGameResult pResult = new PlayerGameResult(gold, bonusGold, gp, bonusGp);
+				PlayerGameResult pResult = new PlayerGameResult(gold, bonusGold, gp, bonusGp, shot, damage);
 
 				System.out.println("pResult >>> SLOT: " + slot + " Valores: " + pResult);
 				room.setResultGameBySlot(slot, pResult);
@@ -137,9 +139,7 @@ public class GameResultReader {
 		}
 		
 		//announceScorePlayer(room);
-		room.isGameStarted(false);// sala deixa de estar em estado playing
-		room.resetEndGameFlag();
-		room.cleanResultGameBySlot();
+		room.finishMatchIfRunning("GameResultReader:0x4412");
 	}
 
 	private static void applyAndPersistMatchRewards(GameRoom room, PlayerSession player) {
@@ -151,15 +151,24 @@ public class GameResultReader {
 
 		int goldDelta = result.getNormalGold() + result.getBonusGold();
 		int gpDelta = result.getNormalGp() + result.getBonusGp();
+		int shotDelta = Math.max(result.getShot(), 0);
+		int damageDelta = Math.max(result.getDamage(), 0);
+		int winnerTeam = room.checkGameEndAndGetWinner();
+		int winDelta = winnerTeam != -1 && player.getRoomTeam() == winnerTeam ? 1 : 0;
+		int lossDelta = winnerTeam != -1 && player.getRoomTeam() != winnerTeam ? 1 : 0;
 
 		// Keep session values in sync for subsequent packets/lobby updates.
 		player.setGold(player.getGold() + goldDelta);
 		player.setTotalScore(player.getTotalScore() + gpDelta);
 		player.setSeasonScore(player.getSeasonScore() + gpDelta);
+		player.setEventScore0(player.getEventScore0() + winDelta);
+		player.setEventScore1(player.getEventScore1() + lossDelta);
+		player.setAccumShot(player.getAccumShot() + shotDelta);
+		player.setAccumDamage(player.getAccumDamage() + damageDelta);
 
 		// Persist rewards to database.
 		UserDAO userDAO = DAOFactory.CreateUserDao();
-		userDAO.updateAddGoldAndGp(player.getUserNameId(), goldDelta, gpDelta);
+		userDAO.updateAddMatchStats(player.getUserNameId(), goldDelta, gpDelta, winDelta, lossDelta, shotDelta, damageDelta);
 	}
 
 	//This is Just used on Season 2 Versions.
@@ -234,7 +243,7 @@ public class GameResultReader {
 			}
 		}
 
-		room.isGameStarted(false);// sala deixa de estar em estado playing
+		room.finishMatchIfRunning("GameResultReader:announceScorePlayer");
 	}
 
 }

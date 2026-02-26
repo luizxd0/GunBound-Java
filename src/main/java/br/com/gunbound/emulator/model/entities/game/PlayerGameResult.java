@@ -5,6 +5,8 @@ public class PlayerGameResult {
 	Integer BonusGold=0;
 	Integer normalGp=0;
 	Integer BonusGp=0;
+	Integer shot=0;
+	Integer damage=0;
 
 	
 	public PlayerGameResult(Integer normalGold, Integer bonusGold, Integer normalGp, Integer bonusGp) {
@@ -13,6 +15,13 @@ public class PlayerGameResult {
 		BonusGold = bonusGold;
 		this.normalGp = normalGp;
 		BonusGp = bonusGp;
+	}
+
+	public PlayerGameResult(Integer normalGold, Integer bonusGold, Integer normalGp, Integer bonusGp, Integer shot,
+			Integer damage) {
+		this(normalGold, bonusGold, normalGp, bonusGp);
+		this.shot = shot;
+		this.damage = damage;
 	}
 	
 	
@@ -41,6 +50,22 @@ public class PlayerGameResult {
 		BonusGp = bonusGp;
 	}
 
+	public Integer getShot() {
+		return shot;
+	}
+
+	public void setShot(Integer shot) {
+		this.shot = shot;
+	}
+
+	public Integer getDamage() {
+		return damage;
+	}
+
+	public void setDamage(Integer damage) {
+		this.damage = damage;
+	}
+
 
 	@Override
 	public String toString() {
@@ -53,6 +78,10 @@ public class PlayerGameResult {
 		builder.append(normalGp);
 		builder.append(", BonusGp=");
 		builder.append(BonusGp);
+		builder.append(", shot=");
+		builder.append(shot);
+		builder.append(", damage=");
+		builder.append(damage);
 		builder.append("]");
 		return builder.toString();
 	}

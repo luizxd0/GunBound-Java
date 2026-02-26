@@ -93,10 +93,8 @@ public class GameResultEndJewel {
 
 		}
 
-		// Same as regular result flow: mark room as waiting again after match end.
-		room.isGameStarted(false);
-		room.resetEndGameFlag();
-		System.out.println("Jewel match finished. Room " + (room.getRoomId() + 1) + " returned to waiting state.");
+		// Same shared cleanup path used by all modes.
+		room.finishMatchIfRunning("GameResultEndJewel:0x4200");
 
 	}
 }

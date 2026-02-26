@@ -14,6 +14,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
@@ -293,6 +294,38 @@ public class GameRoom {
 	 */
 	public void resetEndGameFlag() {
 	    endGameTriggered.set(false);
+	}
+
+	/**
+	 * Shared match-finalization step used by all modes before clients return to room.
+	 * This keeps room state transitions consistent across normal, score and jewel.
+	 *
+	 * @param source free text for debug logging.
+	 * @return true when cleanup was applied, false when room was already waiting.
+	 */
+	public boolean finishMatchIfRunning(String source) {
+		if (!isGameStarted()) {
+			return false;
+		}
+		isGameStarted(false);
+		resetEndGameFlag();
+		cleanResultGameBySlot();
+		System.out.println("Room " + (roomId + 1) + " returned to waiting state. source=" + source);
+		return true;
+	}
+
+	/**
+	 * Safety fallback for clients/modes that may skip final result packets.
+	 */
+	public void scheduleMatchReturnFallback(long delayMs, String source) {
+		PlayerSession anchor = playersBySlot.values().stream().findFirst().orElse(null);
+		if (anchor == null || anchor.getPlayerCtxChannel() == null) {
+			finishMatchIfRunning(source + ":no-anchor");
+			return;
+		}
+		anchor.getPlayerCtxChannel().eventLoop().schedule(() -> {
+			finishMatchIfRunning(source + ":fallback");
+		}, delayMs, TimeUnit.MILLISECONDS);
 	}
 
 	/**

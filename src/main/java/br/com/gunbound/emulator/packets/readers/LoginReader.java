@@ -211,11 +211,11 @@ public class LoginReader {
 		buffer.writeIntLE(session.getTotalScore()); // TotalScore (GP)
 		buffer.writeIntLE(session.getSeasonScore()); // SeasonScore (GP da Temporada)
 		buffer.writeIntLE(session.getGold());
-		// Scores de Evento (zerados)
-		buffer.writeIntLE(0); // EventScore0
-		buffer.writeIntLE(0); // EventScore1
-		buffer.writeIntLE(0); // EventScore2
-		buffer.writeIntLE(0); // EventScore3
+		// Event scores are persisted in DB and used by classic profile panes.
+		buffer.writeIntLE(session.getEventScore0()); // EventScore0
+		buffer.writeIntLE(session.getEventScore1()); // EventScore1
+		buffer.writeIntLE(session.getEventScore2()); // EventScore2
+		buffer.writeIntLE(session.getEventScore3()); // EventScore3
 
 		// --- Parte 2: Dados a Serem Criptografados ---
 

@@ -9,6 +9,7 @@ public interface UserDAO {
 	void updateMinusGold(String playerId, int value);
 	void updateAddGold(String playerId, int value);
 	void updateAddGoldAndGp(String playerId, int goldDelta, int gpDelta);
+	void updateAddMatchStats(String playerId, int goldDelta, int gpDelta, int winDelta, int lossDelta, int shotDelta, int damageDelta);
 	
 	//operacoes com Cash
 	void updateMinusCash(String playerId, int value);
