@@ -8,7 +8,7 @@ import java.util.concurrent.PriorityBlockingQueue;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 
 public class GunBoundLobby { // <-- Nome da classe alterado
-	private static final int MAX_SLOTS_PER_CHANNEL = 255; // Define o número máximo de posicoes no channel
+	private static final int MAX_SLOTS_PER_CHANNEL = 128; // 0-127; bit 0x80 é reservado para flag de power user
 
 	private final int id;
 	// Jogadores no LOBBY deste canal, identificados pelo NickName

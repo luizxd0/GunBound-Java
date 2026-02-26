@@ -212,8 +212,8 @@ public class JoinRoomReader {
 			// buffer.writeByte(0xFF); // Mobile Primário (0xFF = aleatório)
 			// buffer.writeByte(0xFF); // Mobile Secundário (0xFF = aleatório)
 			buffer.writeByte(player.getRoomTeam()); // Time (0=A, 1=B)
-
-			buffer.writeBytes(Utils.hexStringToByteArray("01"));
+			// Occupied/member-state byte (must stay 0x01 for proper client parsing).
+			buffer.writeByte(0x01);
 
 			// Avatar, Guilda e Ranks
 			// buffer.writeBytes(Utils.hexStringToByteArray(player.getAvatarEquipped()));
@@ -235,7 +235,8 @@ public class JoinRoomReader {
 				});
 			}
 
-			buffer.writeBytes(new byte[] { 01 });
+			// Actual PU flag for this room member (0/1).
+			buffer.writeByte(player.isPowerUser() ? 1 : 0);
 
 			// buffer.writeBytes(Utils.hexStringToByteArray("00022003"));//ex-item?
 			// buffer.writeBytes(Utils.hexStringToByteArray("00000000"));//ex-item?

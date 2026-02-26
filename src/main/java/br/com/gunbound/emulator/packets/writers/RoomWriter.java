@@ -79,13 +79,19 @@ public final class RoomWriter {
 		buffer.writeBytes(Utils.resizeBytes(newPlayer.getGuild().getBytes(StandardCharsets.ISO_8859_1), 8)); //
 		buffer.writeShortLE(newPlayer.getRankCurrent());
 		buffer.writeShortLE(newPlayer.getRankSeason());
-		buffer.writeByte(avatarWearing.size());
-		buffer.writeBytes(new byte[] { 00});
+		// Keep avatar payload layout identical to 0x2111 member blocks.
+		if (avatarWearing.size() < 1) {
+			buffer.writeBytes(Utils.hexStringToByteArray("02000000000000000000"));
+		} else {
+			buffer.writeByte(avatarWearing.size());
+			buffer.writeBytes(new byte[] { 00 });
 			avatarWearing.forEach(avatar -> {
 				buffer.writeBytes(PacketUtils.intToBytes(avatar.getItem(), 3, false));
 				buffer.writeBytes(new byte[] { 00 });
 			});
-		buffer.writeBytes(new byte[] {  01 });
+		}
+		// Actual PU flag for the player that just joined (0/1).
+		buffer.writeByte(newPlayer.isPowerUser() ? 1 : 0);
 
 
 		return buffer;

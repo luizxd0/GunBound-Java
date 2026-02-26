@@ -173,8 +173,8 @@ public class LobbyJoin {
 		// 3. Write summary data block for each player
 		Collection<PlayerSession> recipients = new ArrayList<>(packetData.getActiveChannelUsers());
 		for (PlayerSession player : recipients) {
-			// Player position in channel (slot) - 1 BYTE
-			buffer.writeByte(player.getChannelPosition());
+			// Player position (7 bits) + power user flag (0x80)
+			buffer.writeByte(player.getLobbyIdentityByte());
 
 			buffer.writeBytes(Utils.resizeBytes(player.getNickName().getBytes(StandardCharsets.ISO_8859_1), 12));
 			buffer.writeByte(player.getGender());

@@ -25,6 +25,7 @@ public class GameResultReader {
 	private static final int OPCODE_REQUEST = 0x4412;
 	private static final int OPCODE_CONFIRMATION = 0x4413;
 	private static final int OPCODE_RESULT = 0x4415;
+	private static final int POWER_USER_REWARD_MULTIPLIER = 3;
 
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_PLAY_RESULT (0x" + Integer.toHexString(OPCODE_REQUEST) + ")");
@@ -151,6 +152,10 @@ public class GameResultReader {
 
 		int goldDelta = result.getNormalGold() + result.getBonusGold();
 		int gpDelta = result.getNormalGp() + result.getBonusGp();
+		if (player.isPowerUser()) {
+			goldDelta *= POWER_USER_REWARD_MULTIPLIER;
+			gpDelta *= POWER_USER_REWARD_MULTIPLIER;
+		}
 		int shotDelta = Math.max(result.getShot(), 0);
 		int damageDelta = Math.max(result.getDamage(), 0);
 		int winnerTeam = room.checkGameEndAndGetWinner();

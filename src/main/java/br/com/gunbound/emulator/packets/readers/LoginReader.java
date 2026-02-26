@@ -11,9 +11,11 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
+import br.com.gunbound.emulator.model.DAO.ChestDAO;
 import br.com.gunbound.emulator.model.DAO.DAOFactory;
 import br.com.gunbound.emulator.model.DAO.UserDAO;
 import br.com.gunbound.emulator.model.entities.DTO.UserDTO;
+import br.com.gunbound.emulator.model.entities.game.PlayerAvatar;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.model.entities.game.PlayerSessionManager;
 import br.com.gunbound.emulator.packets.readers.lobby.LobbyJoin;
@@ -118,6 +120,7 @@ public class LoginReader {
 
 				// Cria a sessão do jogador
 				PlayerSession session = new PlayerSession(queriedUser, ctx);
+				preloadPlayerAvatars(session);
 				// --- Parte 4: Finalizar configuração da sessão e entrar no canal ---
 				PlayerSessionManager.getInstance().addPlayer(session);
 				ctx.channel().attr(GameAttributes.USER_SESSION).set(session);
@@ -272,6 +275,20 @@ public class LoginReader {
 		// sendPacket(ctx, 0x1012, hexStringToBytes("1100")); // Erro: Senha ou user
 		// incorretos
 		ctx.close();
+	}
+
+	private static void preloadPlayerAvatars(PlayerSession session) {
+		if (session == null) {
+			return;
+		}
+		try {
+			ChestDAO chestDAO = DAOFactory.CreateChestDao();
+			session.getPlayerAvatars().clear();
+			chestDAO.getAllAvatarsByOwnerId(session.getUserNameId())
+					.forEach(chestAvatar -> session.getPlayerAvatars().add(new PlayerAvatar(chestAvatar)));
+		} catch (Exception e) {
+			System.err.println("Failed to preload player avatars for " + session.getUserNameId() + ": " + e.getMessage());
+		}
 	}
 
 }

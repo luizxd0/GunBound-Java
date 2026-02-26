@@ -92,7 +92,7 @@ public class LobbyChatReader {
 		ByteBuf buffer = Unpooled.buffer();
 		byte[] messageBytes = message.getBytes(StandardCharsets.ISO_8859_1);
 
-		buffer.writeByte(sender.getChannelPosition());
+		buffer.writeByte(sender.getLobbyIdentityByte());
 		buffer.writeBytes(Utils.resizeBytes(sender.getNickName().getBytes(StandardCharsets.ISO_8859_1), 12));
 		buffer.writeByte(messageBytes.length);
 		buffer.writeBytes(messageBytes);

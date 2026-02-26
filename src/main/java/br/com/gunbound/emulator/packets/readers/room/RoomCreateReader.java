@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.room.RoomListReader;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.room.RoomManager;
 import br.com.gunbound.emulator.room.model.enums.GameMode;
@@ -147,6 +148,9 @@ public class RoomCreateReader {
 			// O jogador não pode estar no lobby e em uma sala ao mesmo tempo.
 			GunBoundLobbyManager.getInstance().playerLeaveLobby(creator); //
 			System.out.println("Player " + creator.getNickName() + " removed from lobby to enter room.");
+
+			// Atualiza imediatamente a lista de salas para todos os jogadores nos lobbies.
+			RoomListReader.broadcastLobbyRoomListRefresh();
 
 		} catch (Exception e) {
 			System.err.println("Fatal error decoding room creation packet:");

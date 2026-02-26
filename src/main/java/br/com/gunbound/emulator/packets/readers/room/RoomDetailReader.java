@@ -77,7 +77,9 @@ public class RoomDetailReader {
 
 		buffer.writeByte(room.getMapId());
 		buffer.writeIntLE(room.getGameSettings());
-		buffer.writeBytes(new byte[] { 01 });// tem pu talvez?
+		// Room-level power-user indicator used by some clients in room detail view.
+		boolean masterIsPowerUser = room.getRoomMaster() != null && room.getRoomMaster().isPowerUser();
+		buffer.writeByte(masterIsPowerUser ? 1 : 0);
 		buffer.writeByte(room.getPlayerCount());
 		buffer.writeByte(room.getCapacity());
 
@@ -89,15 +91,11 @@ public class RoomDetailReader {
 		for (Map.Entry<Integer, PlayerSession> entry : room.getPlayersBySlot().entrySet()) {
 			PlayerSession roomPlayer = entry.getValue();
 			buffer.writeBytes(Utils.resizeBytes(roomPlayer.getNickName().getBytes(StandardCharsets.ISO_8859_1), 12));
-			buffer.writeBytes(new byte[] { (byte)0x00});// gender?
-			//buffer.writeByte(roomPlayer.getRoomTeam());
+			buffer.writeByte(roomPlayer.getGender());
 
 			buffer.writeBytes(Utils.resizeBytes(roomPlayer.getGuild().getBytes(StandardCharsets.ISO_8859_1), 8));
-
-			//buffer.writeShortLE(roomPlayer.getRankCurrent());
-			//buffer.writeShortLE(roomPlayer.getRankSeason());
-			
-			buffer.writeIntLE(1);
+			buffer.writeShortLE(roomPlayer.getRankCurrent());
+			buffer.writeShortLE(roomPlayer.getRankSeason());
 
 		}
 

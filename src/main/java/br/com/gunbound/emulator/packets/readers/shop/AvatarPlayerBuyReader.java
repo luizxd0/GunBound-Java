@@ -10,6 +10,7 @@ import br.com.gunbound.emulator.model.DAO.UserDAO;
 import br.com.gunbound.emulator.model.entities.DTO.ChestDTO;
 import br.com.gunbound.emulator.model.entities.DTO.MenuDTO;
 import br.com.gunbound.emulator.model.entities.game.GameMenu;
+import br.com.gunbound.emulator.model.entities.game.PlayerAvatar;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.crypto.GunBoundCipher;
@@ -103,6 +104,12 @@ public class AvatarPlayerBuyReader {
 				idNewAvatarOnChest = factoryChestDAO.insert(avatarBought);
 
 				ChestDTO avatar = factoryChestDAO.getByIdx(idNewAvatarOnChest);
+				if (avatar == null) {
+					System.err.println("Could not load purchased avatar from chest. idx=" + idNewAvatarOnChest);
+					return;
+				}
+				// Keep session avatar cache in sync so PU effect is active immediately.
+				player.getPlayerAvatars().add(new PlayerAvatar(avatar));
 				avatar.setItem(avatarCode);
 				
 				// chama o metodo para escrever o avatar no shopping

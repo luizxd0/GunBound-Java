@@ -14,11 +14,11 @@ public class PacketWriter {
 
 		System.out.println("DEBUG : ChannelPosition no writeJoinNotification: " + player.getChannelPosition());
 
-		// Posição (slot) do jogador no canal.
-		buffer.writeByte(player.getChannelPosition());
+		// Posição (7 bits) + flag de power user (bit 0x80).
+		buffer.writeByte(player.getLobbyIdentityByte());
 
 		System.out.println(
-				"DEBUG : ChannelPosition no writeJoinNotification (byte) : " + (byte) player.getChannelPosition());
+				"DEBUG : ChannelPosition no writeJoinNotification (byte) : " + (byte) player.getLobbyIdentityByte());
 
 		// Nickname (13 bytes)
 		buffer.writeBytes(Utils.resizeBytes(player.getNickName().getBytes(StandardCharsets.ISO_8859_1), 12));

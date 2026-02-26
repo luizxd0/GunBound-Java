@@ -3,6 +3,7 @@ package br.com.gunbound.emulator.model.entities.game;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.sql.Timestamp;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.lobby.GunBoundLobby;
@@ -39,6 +40,7 @@ public class PlayerSession {
 	private int eventScore3;
 	private int accumShot;
 	private int accumDamage;
+	private int authority;
 
 	// Avatares
 	private List<PlayerAvatar> playerAvatars = new ArrayList<PlayerAvatar>();
@@ -56,6 +58,7 @@ public class PlayerSession {
 	private int roomTankSecondary = 0xFF; // Inicia como Random
 	private int roomTeam = 0; // 0 para Time A, 1 para Time B. Padrão A.
 	private int isAlive = 1;
+	private static final int POWER_USER_ITEM_ID = 204801;
 
 	// Construtor para Iniciar o PlayerSession
 	public PlayerSession() {
@@ -91,6 +94,7 @@ public class PlayerSession {
 		this.eventScore3 = user.getEventScore3();
 		this.accumShot = user.getAccumShot();
 		this.accumDamage = user.getAccumDamage();
+		this.authority = user.getAuthority();
 		this.channelPosition = -1;
 
 		System.out.println("PlayerSession: Jogador: " + this.nickName + " Adicionado na Sessão");
@@ -277,6 +281,27 @@ public class PlayerSession {
 
 	public void setAccumDamage(int accumDamage) {
 		this.accumDamage = accumDamage;
+	}
+
+	public int getAuthority() {
+		return authority;
+	}
+
+	public boolean isPowerUser() {
+		Timestamp now = new Timestamp(System.currentTimeMillis());
+		return playerAvatars.stream().anyMatch(avatar -> {
+			if (avatar == null || avatar.getItem() == null || avatar.getItem() != POWER_USER_ITEM_ID) {
+				return false;
+			}
+			Timestamp expire = avatar.getExpire();
+			// null expiry means permanent; otherwise active while expire >= now.
+			return expire == null || !expire.before(now);
+		});
+	}
+
+	public int getLobbyIdentityByte() {
+		int position = channelPosition & 0x7F;
+		return isPowerUser() ? (position | 0x80) : position;
 	}
 	
 	public ChannelHandlerContext getPlayerCtx() {

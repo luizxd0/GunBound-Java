@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
+import br.com.gunbound.emulator.lobby.GunBoundLobby;
+import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.packets.writers.RoomWriter;
 import br.com.gunbound.emulator.room.GameRoom;
@@ -20,6 +22,8 @@ public class RoomListReader {
 
 	private static final int OPCODE_REQUEST = 0x2100;
 	private static final int OPCODE_RESPONSE = 0x2103;
+	private static final int FILTER_ALL = 1;
+	private static final int FILTER_WAITING = 2;
 	// cliente exibe 6 salas por página.
 	private static final int ROOMS_PER_PAGE = 6;
 
@@ -39,39 +43,10 @@ public class RoomListReader {
 				startIndex = request.readUnsignedByte();
 			}
 
-			String filterName = filterMode == 1 ? "ALL" : (filterMode == 2 ? "WAITING" : "UNKNOWN");
+			String filterName = filterMode == FILTER_ALL ? "ALL" : (filterMode == FILTER_WAITING ? "WAITING" : "UNKNOWN");
 			System.out.println("Room filter: " + filterName + ", requested start index: " + startIndex);
 
-			// 2. Obter todas as salas e aplicar o filtro
-			Collection<GameRoom> allRooms = RoomManager.getInstance().getAllRooms();
-			List<GameRoom> filteredRooms; // Usar List para permitir a criação de sub-listas
-
-			if (filterMode == 2) { // Apenas salas esperando (WAITING)
-				filteredRooms = allRooms.stream().filter(room -> !room.isGameStarted()).collect(Collectors.toList());
-			} else { // ALL ou UNKNOWN
-				filteredRooms = new ArrayList<>(allRooms);
-			}
-
-			// 3. Calcular a paginação com base no índice inicial
-			int totalRooms = filteredRooms.size();
-			int endIndex = Math.min(startIndex + ROOMS_PER_PAGE, totalRooms);
-
-			List<GameRoom> roomsForPage;
-			if (startIndex >= totalRooms) {
-				roomsForPage = Collections.emptyList(); // A página solicitada está fora dos limites
-			} else {
-				roomsForPage = filteredRooms.subList(startIndex, endIndex);
-			}
-
-			// 4. Construir e enviar o pacote de resposta
-			//int playerTxSum = player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
-
-			// A chamada passa a lista da página atual
-			ByteBuf responsePayload = RoomWriter.writeRoomList(roomsForPage);
-
-			ByteBuf responsePacket = PacketUtils.generatePacket(player, OPCODE_RESPONSE, responsePayload, true);
-
-			ctx.writeAndFlush(responsePacket);
+			sendRoomListToPlayer(player, filterMode, startIndex, true);
 
 		} catch (Exception e) {
 			System.err.println("Error processing room list");
@@ -79,5 +54,46 @@ public class RoomListReader {
 		} finally {
 			request.release();
 		}
+	}
+
+	public static void broadcastLobbyRoomListRefresh() {
+		List<GunBoundLobby> lobbies = new ArrayList<>(GunBoundLobbyManager.getInstance().getAllLobby());
+		for (GunBoundLobby lobby : lobbies) {
+			List<PlayerSession> players = new ArrayList<>(lobby.getPlayersInLobby().values());
+			for (PlayerSession player : players) {
+				sendRoomListToPlayer(player, FILTER_WAITING, 0, true);
+			}
+		}
+	}
+
+	private static void sendRoomListToPlayer(PlayerSession player, int filterMode, int startIndex, boolean useRtc) {
+		if (player == null || player.getPlayerCtxChannel() == null || !player.getPlayerCtxChannel().isActive()) {
+			return;
+		}
+		try {
+			List<GameRoom> roomsForPage = getRoomsForPage(filterMode, startIndex);
+			ByteBuf responsePayload = RoomWriter.writeRoomList(roomsForPage);
+			ByteBuf responsePacket = PacketUtils.generatePacket(player, OPCODE_RESPONSE, responsePayload, useRtc);
+			player.getPlayerCtxChannel().eventLoop().execute(() -> player.getPlayerCtxChannel().writeAndFlush(responsePacket));
+		} catch (Exception e) {
+			System.err.println("Failed to send room list refresh to " + player.getNickName() + ": " + e.getMessage());
+		}
+	}
+
+	private static List<GameRoom> getRoomsForPage(int filterMode, int startIndex) {
+		Collection<GameRoom> allRooms = RoomManager.getInstance().getAllRooms();
+		List<GameRoom> filteredRooms;
+		if (filterMode == FILTER_WAITING) {
+			filteredRooms = allRooms.stream().filter(room -> !room.isGameStarted()).collect(Collectors.toList());
+		} else {
+			filteredRooms = new ArrayList<>(allRooms);
+		}
+
+		int totalRooms = filteredRooms.size();
+		int endIndex = Math.min(startIndex + ROOMS_PER_PAGE, totalRooms);
+		if (startIndex >= totalRooms) {
+			return Collections.emptyList();
+		}
+		return filteredRooms.subList(startIndex, endIndex);
 	}
 }

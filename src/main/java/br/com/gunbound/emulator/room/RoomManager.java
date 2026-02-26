@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
 
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.room.RoomListReader;
 
 /**
  * Manages all active game rooms (GameRooms) on the server. Uses
@@ -73,6 +74,7 @@ public final class RoomManager {
 			// Return the ID to the queue so it can be reused.
 			availableRoomIds.add(roomId);
 			System.out.println("ROOM MANAGER: Room " + roomId + " removed and ID released.");
+			RoomListReader.broadcastLobbyRoomListRefresh();
 		}
 	}
 
@@ -99,6 +101,7 @@ public final class RoomManager {
 			} else if (removedPlayerSlot != -1) {
 				// 3. If the room is not empty, notify everyone about the freed slot.
 				room.notifyPlayerLeft(removedPlayerSlot, wasHost);
+				RoomListReader.broadcastLobbyRoomListRefresh();
 			}
 		}
 	}
