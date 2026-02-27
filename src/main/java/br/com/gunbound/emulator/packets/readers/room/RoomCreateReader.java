@@ -90,7 +90,7 @@ public class RoomCreateReader {
 			int capacity = request.readUnsignedByte();
 
 			// --- EXTRAINDO O GAMEMODE PARA DEBUG ---
-			short gameModeId = (short) (gameSettings >> 16);
+			short gameModeId = (short) ((gameSettings >> 16) & 0xFF);
 			GameMode gameModeEnum = GameMode.fromId(gameModeId);
 			//seta o gameMode para verificações
 			

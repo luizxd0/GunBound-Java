@@ -7,6 +7,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.room.GameRoom;
+import br.com.gunbound.emulator.room.model.enums.GameMode;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.Utils;
 import br.com.gunbound.emulator.utils.crypto.GunBoundCipher;
@@ -69,6 +70,11 @@ public class GamePlayerDeadReader {
 		// função com callback
 		announceDeadPlayer(room, deadPlayer.getCurrentRoom().getSlotPlayer(deadPlayer), teamDeadPlayer, ctx,
 				() -> {
+					// Tag mode can emit 0x4100 during role/sync transitions.
+					// Do not use death packets as match-end trigger for TAG.
+					if (room.getGameMode() == GameMode.TAG.getId()) {
+						return;
+					}
 					int winnerTeam = room.checkGameEndAndGetWinner();
 					if (winnerTeam != -1 && room.tryTriggerEndGame()) {
 						ctx.channel().eventLoop().schedule(() -> {

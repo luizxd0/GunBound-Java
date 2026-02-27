@@ -344,6 +344,8 @@ public class GameRoom {
 	    if (isAscoreRoom()) {
 	        if (!isTeamHasScore(0)) return 1;
 	        if (!isTeamHasScore(1)) return 0;
+	        // Score mode should end strictly by score depletion.
+	        return -1;
 	    }
 	    if (!isTeamAlive(0)) return 1;
 	    if (!isTeamAlive(1)) return 0;

@@ -38,7 +38,7 @@ public class RoomChangeOptionReader {
 		System.out.println("Room " + room.getRoomId() + " game options changed.");
 		
 		
-		short gameModeId = (short) (config >> 16);
+		short gameModeId = (short) ((config >> 16) & 0xFF);
 		room.setGameMode(gameModeId);
 
 		// update sem payload com RTC.
