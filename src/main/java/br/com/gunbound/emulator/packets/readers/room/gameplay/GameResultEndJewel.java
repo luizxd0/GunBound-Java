@@ -93,8 +93,10 @@ public class GameResultEndJewel {
 
 		}
 
-		// Same shared cleanup path used by all modes.
-		room.finishMatchIfRunning("GameResultEndJewel:0x4200");
-
+		// Do NOT finish the match here. The client will send 0x4412 (SVC_PLAY_RESULT);
+		// GameResultReader will process it (stats, 0x4413, results screen) and then
+		// call finishMatchIfRunning. If 0x4412 never arrives, the fallback returns the
+		// room to waiting after the delay.
+		room.scheduleMatchReturnFallback(1000, "GameResultEndJewel:0x4200");
 	}
 }

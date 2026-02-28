@@ -13,7 +13,18 @@ import br.com.gunbound.emulator.model.entities.ServerOption;
 public class GunBoundStarter {
     private static final int BROKER_PORT = 8400;
     private static final int GAME_SERVER_PORT = 8360;
-    private static final String SERVER_HOST = "127.0.0.1"; // Use 127.0.0.1 for local test; 0.0.0.0 or your IP for LAN
+
+    /** Bind address: use 0.0.0.0 to accept connections from any interface (LAN + public). Use 127.0.0.1 for local-only. */
+    private static final String BIND_HOST = "0.0.0.0";
+
+    /**
+     * Advertised address: the IP or hostname the broker sends to clients in the server list.
+     * Clients connect to this address. Must NOT be 0.0.0.0 (that would make clients connect to themselves).
+     * - Local only: "127.0.0.1"
+     * - LAN (same network): your PC's LAN IP (e.g. "192.168.1.100")
+     * - Public internet: your public IP or a hostname that resolves to it (and forward ports 8360, 8400 on your router).
+     */
+    private static final String ADVERTISED_HOST = "51.191.171.234";
 
 	public static void main(String[] args) {
 		// Use an ExecutorService to start the broker and game server in separate threads.
@@ -27,8 +38,8 @@ public class GunBoundStarter {
 		// List of servers that the broker will show to clients.
 		List<ServerOption> serverOptions = new ArrayList<>();
 		try {
-			// Add the local game server to the list that the broker will show.
-			serverOptions.add(new ServerOption("Gunbound Classic", "Avatar OFF", "127.0.0.1",
+			// Advertised address is what clients use to connect; use ADVERTISED_HOST, never 0.0.0.0.
+			serverOptions.add(new ServerOption("Gunbound Classic", "Avatar OFF", ADVERTISED_HOST,
 					GAME_SERVER_PORT, 0, 500, true));
 		} catch (Exception e) {
 			System.err.println("Error creating ServerOption for Game Server: " + e.getMessage());
@@ -72,7 +83,7 @@ public class GunBoundStarter {
 		// clients to the Game Server that was just started.
 		// The 'gameServerSessions' list is passed to the broker so it can
 		// report the current game server occupancy.
-		GunBoundBrokerServer gunBoundBrokerServer = new GunBoundBrokerServer(SERVER_HOST, BROKER_PORT, serverOptions,
+		GunBoundBrokerServer gunBoundBrokerServer = new GunBoundBrokerServer(BIND_HOST, BROKER_PORT, serverOptions,
 				gameServerSessions);
 		executor.submit(() -> {
 			try {
@@ -84,8 +95,9 @@ public class GunBoundStarter {
 		});
 
 		System.out.println("--- GunBound Starter Started ---");
-		System.out.println("Broker Server listening on " + SERVER_HOST + ":" + BROKER_PORT);
-		System.out.println("Game Server listening on " + SERVER_HOST + ":" + GAME_SERVER_PORT);
+		System.out.println("Broker Server listening on " + BIND_HOST + ":" + BROKER_PORT);
+		System.out.println("Game Server listening on " + BIND_HOST + ":" + GAME_SERVER_PORT);
+		System.out.println("Clients will connect to: " + ADVERTISED_HOST + " (broker " + BROKER_PORT + ", game " + GAME_SERVER_PORT + ")");
 		System.out.println("Press Ctrl+C to stop.");
 
 		// The main thread now waits for the executor threads to finish.

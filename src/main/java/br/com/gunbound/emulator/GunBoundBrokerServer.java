@@ -95,31 +95,35 @@ public class GunBoundBrokerServer {
 
 	// This main method is only for starting the broker without the game server. Use GunBoundStarter.java for the full server.
 	public static void main(String[] args) throws Exception {
-		// Default address (0.0.0.0 for all interfaces)
-		String host = "0.0.0.0";
+		// Bind: 0.0.0.0 = accept from any interface; 127.0.0.1 = local only.
+		String bindHost = "0.0.0.0";
 		int brokerPort = 8400; // Default Broker Server port
+		// IP/hostname sent to clients in the server list (never 0.0.0.0). Use -Dgunbound.advertised.host=YOUR_IP or set here.
+		String advertisedHost = System.getProperty("gunbound.advertised.host", "127.0.0.1");
 
-		// Check if the user provided an IP and/or port as argument
 		if (args.length > 0) {
-			host = args[0]; // First argument is the IP
+			bindHost = args[0];
 		}
 		if (args.length > 1) {
 			try {
-				brokerPort = Integer.parseInt(args[1]); // Second argument is the port
+				brokerPort = Integer.parseInt(args[1]);
 			} catch (NumberFormatException e) {
 				System.err.println("Invalid port! Using default: " + brokerPort);
 			}
 		}
+		if (args.length > 2) {
+			advertisedHost = args[2]; // Third argument: advertised IP for server list
+		}
 
 		// --- Configure the server list here ---
 		List<ServerOption> serverOptions = new ArrayList<>();
-		serverOptions.add(new ServerOption("Gunbound Classic", "AVATAR OFF", "127.0.0.1", 8360, 0, 500, true));
-		serverOptions.add(new ServerOption("Gunbound Classic", "AVATAR ON", "127.0.0.1", 8361, 0, 100, true));
+		serverOptions.add(new ServerOption("Gunbound Classic", "AVATAR OFF", advertisedHost, 8360, 0, 500, true));
+		serverOptions.add(new ServerOption("Gunbound Classic", "AVATAR ON", advertisedHost, 8361, 0, 100, true));
 
 		// This list simulates player sessions to calculate occupancy. In a real app you would manage it more robustly.
 		List<Object> worldSession = new ArrayList<>();
 
 		// Create and start the server.
-		new GunBoundBrokerServer(host, brokerPort, serverOptions, worldSession).start();
+		new GunBoundBrokerServer(bindHost, brokerPort, serverOptions, worldSession).start();
 	}
 }
