@@ -6,6 +6,7 @@ import java.util.List;
 import br.com.gunbound.emulator.Connection;
 import br.com.gunbound.emulator.ConnectionManager;
 import br.com.gunbound.emulator.model.entities.ServerOption;
+import br.com.gunbound.emulator.model.entities.game.PlayerSessionManager;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.Utils;
 import io.netty.buffer.ByteBuf;
@@ -163,8 +164,8 @@ public class GunBoundBrokerServerHandler extends ChannelInboundHandlerAdapter {
 		directoryPayload.writeBytes(new byte[] { 0x00, 0x00, 0x01 }); // Bytes desconhecidos
 		directoryPayload.writeByte(serverOptions.size()); // Número de servidores na lista
 
-		// Usamos a lista thread-safe para obter a ocupação atual.
-		int currentUtilization = worldSession.size();
+		// Use actual game server online count so the broker list shows e.g. 1/500 when someone is logged in.
+		int currentUtilization = PlayerSessionManager.getInstance().getActivePlayerCount();
 
 		// Constrói o payload do diretório, um servidor por vez.
 		for (int i = 0; i < serverOptions.size(); i++) {
