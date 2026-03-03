@@ -140,6 +140,10 @@ public class GameRoom {
 		return roomMaster;
 	}
 
+	public boolean isMasterPowerUser() {
+		return roomMaster != null && roomMaster.isPowerUser();
+	}
+
 	public Map<Integer, PlayerSession> getPlayersBySlot() {
 		return playersBySlot;
 	}

@@ -43,7 +43,8 @@ public class RoomListReader {
 				startIndex = request.readUnsignedByte();
 			}
 
-			String filterName = filterMode == FILTER_ALL ? "ALL" : (filterMode == FILTER_WAITING ? "WAITING" : "UNKNOWN");
+			String filterName = filterMode == FILTER_ALL ? "ALL"
+					: (filterMode == FILTER_WAITING ? "WAITING" : "UNKNOWN");
 			System.out.println("Room filter: " + filterName + ", requested start index: " + startIndex);
 
 			sendRoomListToPlayer(player, filterMode, startIndex, true);
@@ -74,7 +75,8 @@ public class RoomListReader {
 			List<GameRoom> roomsForPage = getRoomsForPage(filterMode, startIndex);
 			ByteBuf responsePayload = RoomWriter.writeRoomList(roomsForPage);
 			ByteBuf responsePacket = PacketUtils.generatePacket(player, OPCODE_RESPONSE, responsePayload, useRtc);
-			player.getPlayerCtxChannel().eventLoop().execute(() -> player.getPlayerCtxChannel().writeAndFlush(responsePacket));
+			player.getPlayerCtxChannel().eventLoop()
+					.execute(() -> player.getPlayerCtxChannel().writeAndFlush(responsePacket));
 		} catch (Exception e) {
 			System.err.println("Failed to send room list refresh to " + player.getNickName() + ": " + e.getMessage());
 		}
@@ -88,6 +90,17 @@ public class RoomListReader {
 		} else {
 			filteredRooms = new ArrayList<>(allRooms);
 		}
+
+		// Ordenação: Power User primeiro, depois por ID da sala.
+		filteredRooms.sort((a, b) -> {
+			if (a.isMasterPowerUser() && !b.isMasterPowerUser()) {
+				return -1;
+			}
+			if (!a.isMasterPowerUser() && b.isMasterPowerUser()) {
+				return 1;
+			}
+			return Integer.compare(a.getRoomId(), b.getRoomId());
+		});
 
 		int totalRooms = filteredRooms.size();
 		int endIndex = Math.min(startIndex + ROOMS_PER_PAGE, totalRooms);

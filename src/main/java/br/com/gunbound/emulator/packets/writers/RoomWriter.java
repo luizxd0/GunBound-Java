@@ -29,10 +29,6 @@ public final class RoomWriter {
 	private RoomWriter() {
 	}
 
-
-
-
-
 	/**
 	 * Constrói o payload para notificar que um jogador entrou na sala (0x3010).
 	 *
@@ -42,8 +38,7 @@ public final class RoomWriter {
 	 */
 	public static ByteBuf writeNotifyPlayerJoinedRoom(PlayerSession newPlayer) {
 		ByteBuf buffer = Unpooled.buffer();
-		
-		
+
 		// avatares sendo usados
 		List<PlayerAvatar> avatarWearing = newPlayer.getPlayerAvatars().stream()
 				.filter(av -> "1".equals(av.getWearing())).collect(Collectors.toList());
@@ -93,7 +88,6 @@ public final class RoomWriter {
 		// Actual PU flag for the player that just joined (0/1).
 		buffer.writeByte(newPlayer.isPowerUser() ? 1 : 0);
 
-
 		return buffer;
 	}
 
@@ -111,13 +105,10 @@ public final class RoomWriter {
 		// Gera um pacote com a sequência CORRETA para este jogador.
 		ByteBuf notifyPacket = PacketUtils.generatePacket(player, OPCODE_ROOM_UPDATE, notifyPayload, true);
 		// Envia o pacote individualmente.
-		
-		
+
 		GameRoom room = player.getCurrentRoom();
-		
-		room.submitAction(() -> 
-		player.getPlayerCtxChannel().writeAndFlush(notifyPacket)
-		,player.getPlayerCtx());
+
+		room.submitAction(() -> player.getPlayerCtxChannel().writeAndFlush(notifyPacket), player.getPlayerCtx());
 	}
 
 	/**
@@ -142,7 +133,7 @@ public final class RoomWriter {
 
 			buffer.writeByte(room.getMapId());
 			buffer.writeIntLE(room.getGameSettings());
-			buffer.writeBytes(new byte[] { 00 });// tem pu talvez?
+			buffer.writeByte(room.isMasterPowerUser() ? 1 : 0);
 			buffer.writeByte(room.getPlayerCount());
 			buffer.writeByte(room.getCapacity());
 			buffer.writeByte(room.isGameStarted() ? 1 : 0); // Estado do jogo (1=jogando, 0=esperando)
@@ -203,7 +194,8 @@ public final class RoomWriter {
 			Map<Integer, SpawnPoint> spawnPoints, byte[] payloadRcv) {
 		ByteBuf buffer = Unpooled.buffer();
 
-		//buffer.writeBytes(new byte[] { (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00 });
+		// buffer.writeBytes(new byte[] { (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte)
+		// 0x00 });
 		buffer.writeIntLE(room.getGameSettings());
 		// buffer.writeBytes(payloadRcv);
 
@@ -223,8 +215,10 @@ public final class RoomWriter {
 			buffer.writeBytes(Utils.resizeBytes(player.getNickName().getBytes(StandardCharsets.ISO_8859_1), 12));
 			// buffer.writeByte((byte)0x01);// gender?
 			buffer.writeByte(player.getRoomTeam());
-			buffer.writeByte((player.getRoomTankPrimary()) == 0xFF ? Utils.randomMobile(99) : player.getRoomTankPrimary());
-			buffer.writeByte(player.getRoomTankSecondary() == 0xFF ? Utils.randomMobile(99) : player.getRoomTankSecondary());
+			buffer.writeByte(
+					(player.getRoomTankPrimary()) == 0xFF ? Utils.randomMobile(99) : player.getRoomTankPrimary());
+			buffer.writeByte(
+					player.getRoomTankSecondary() == 0xFF ? Utils.randomMobile(99) : player.getRoomTankSecondary());
 
 			int playerX = new Random().nextInt(spawn.getXMax() - spawn.getXMin() + 1) + spawn.getXMin();
 			int playerY = spawn.getY(); // getY() já trata o null, retornando 0
