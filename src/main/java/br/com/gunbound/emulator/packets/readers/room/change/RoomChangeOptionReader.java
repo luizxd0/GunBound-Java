@@ -24,7 +24,7 @@ public class RoomChangeOptionReader {
 		}
 
 		// Empacota toda a lógica em um Runnable e submeta para a fila da sala!
-		room.submitAction(() -> processChangeOption(payload, player, room),ctx);
+		room.submitAction(() -> processChangeOption(payload, player, room), ctx);
 	}
 
 	private static void processChangeOption(byte[] payload, PlayerSession player,
@@ -36,12 +36,14 @@ public class RoomChangeOptionReader {
 		System.out.println("[DEBUG] RoomChangeOptionReader: " + config);
 		room.setGameSettings(config);
 		System.out.println("Room " + room.getRoomId() + " game options changed.");
-		
-		
+
 		short gameModeId = (short) ((config >> 16) & 0xFF);
 		room.setGameMode(gameModeId);
 
 		// update sem payload com RTC.
 		RoomWriter.writeRoomUpdate(player);
+
+		// Notifica o lobby sobre a mudança de opções para atualizar a lista de salas.
+		br.com.gunbound.emulator.packets.readers.room.RoomListReader.broadcastLobbyRoomListRefresh();
 	}
 }

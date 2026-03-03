@@ -43,5 +43,9 @@ public class RoomChangeCapacityReader {
 		// update sem payload com RTC.
 		RoomWriter.writeRoomUpdate(player);
 
+		// Notifica o lobby sobre a mudança de capacidade para atualizar a lista de
+		// salas.
+		br.com.gunbound.emulator.packets.readers.room.RoomListReader.broadcastLobbyRoomListRefresh();
+
 	}
 }

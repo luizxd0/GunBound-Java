@@ -25,7 +25,7 @@ public class RoomChangeMapReader {
 		}
 
 		// Empacota toda a lógica em um Runnable e submeta para a fila da sala!
-		room.submitAction(() -> processChangeStage(payload, player, room),ctx);
+		room.submitAction(() -> processChangeStage(payload, player, room), ctx);
 	}
 
 	private static void processChangeStage(byte[] payload, PlayerSession player,
@@ -42,6 +42,9 @@ public class RoomChangeMapReader {
 
 		// update sem payload com RTC.
 		RoomWriter.writeRoomUpdate(player);
+
+		// Notifica o lobby sobre a mudança de mapa para atualizar a lista de salas.
+		br.com.gunbound.emulator.packets.readers.room.RoomListReader.broadcastLobbyRoomListRefresh();
 
 	}
 }
