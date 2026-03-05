@@ -75,9 +75,9 @@ public class PlayerSession {
 		// Score
 		this.totalScore = user.getTotalScore();
 		this.seasonScore = user.getSeasonScore();
-		// Level
-		this.rankCurrent = user.getTotalRank();
-		this.rankSeason = user.getSeasonRank();
+		// Grade shown by rank image (lobby/room badges)
+		this.rankCurrent = user.getTotalGrade();
+		this.rankSeason = user.getSeasonGrade();
 		// Ranking
 		this.totalRank = user.getTotalRank();
 		this.seasonRank = user.getSeasonRank();
