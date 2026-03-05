@@ -5,16 +5,15 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import br.com.gunbound.emulator.db.DatabaseManager;
 import br.com.gunbound.emulator.db.DbException;
 import br.com.gunbound.emulator.model.DAO.UserDAO;
 import br.com.gunbound.emulator.model.entities.DTO.UserDTO;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 
 public class UserJDBC implements UserDAO {
-	private Connection conn;
 
-	public UserJDBC(Connection conn) {
-		this.conn = conn;
+	public UserJDBC() {
 	}
 
 	@Override
@@ -28,7 +27,8 @@ public class UserJDBC implements UserDAO {
 				+ "g.ClientData, g.Country as gameCountry, g.GiftProhibitTime "
 				+ "FROM user u JOIN game g ON u.UserId = g.UserId WHERE u.UserId = ?";
 
-		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement stmt = conn.prepareStatement(sql)) {
 			stmt.setString(1, userIdQuery);
 			try (ResultSet rs = stmt.executeQuery()) {
 				if (rs.next()) {
@@ -90,13 +90,12 @@ public class UserJDBC implements UserDAO {
 		}
 		return null;
 	}
-	
-	
+
 	@Override
 	public void updateAddGold(String playerId, int value) {
 		updateGold(playerId, value, "+");
 	}
-	
+
 	@Override
 	public void updateMinusGold(String playerId, int value) {
 		updateGold(playerId, value, "-");
@@ -106,7 +105,8 @@ public class UserJDBC implements UserDAO {
 	public void updateAddGoldAndGp(String playerId, int goldDelta, int gpDelta) {
 		String sql = "UPDATE Game SET Gold = Gold + ?, TotalScore = TotalScore + ?, SeasonScore = SeasonScore + ? "
 				+ "WHERE UserId = ?";
-		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement stmt = conn.prepareStatement(sql)) {
 			stmt.setInt(1, goldDelta);
 			stmt.setInt(2, gpDelta);
 			stmt.setInt(3, gpDelta);
@@ -129,7 +129,8 @@ public class UserJDBC implements UserDAO {
 				+ "AccumShot = AccumShot + ?, "
 				+ "AccumDamage = AccumDamage + ? "
 				+ "WHERE UserId = ?";
-		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement stmt = conn.prepareStatement(sql)) {
 			stmt.setInt(1, goldDelta);
 			stmt.setInt(2, gpDelta);
 			stmt.setInt(3, gpDelta);
@@ -144,13 +145,13 @@ public class UserJDBC implements UserDAO {
 		}
 	}
 
-
 	public void updateGold(String playerId, int value, String op) {
-		if(op == null)
+		if (op == null)
 			return;
-		
-		String sql = "UPDATE Game SET Gold = Gold "+ op +" ? WHERE UserId = ?";
-		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+		String sql = "UPDATE Game SET Gold = Gold " + op + " ? WHERE UserId = ?";
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement stmt = conn.prepareStatement(sql)) {
 
 			stmt.setInt(1, value);
 			stmt.setString(2, playerId);
@@ -158,27 +159,27 @@ public class UserJDBC implements UserDAO {
 			stmt.executeUpdate();
 		} catch (SQLException e) {
 			throw new DbException(e.getMessage());
-		} 
+		}
 
 	}
-	
+
 	@Override
 	public void updateAddCash(String playerId, int value) {
 		updateCash(playerId, value, "+");
 	}
-	
+
 	@Override
 	public void updateMinusCash(String playerId, int value) {
 		updateCash(playerId, value, "-");
 	}
 
-
 	public void updateCash(String playerId, int value, String op) {
-		if(op == null)
+		if (op == null)
 			return;
-		
-		String sql = "UPDATE Game SET Cash = Cash "+ op +" ? WHERE UserId = ?";
-		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+		String sql = "UPDATE Game SET Cash = Cash " + op + " ? WHERE UserId = ?";
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement stmt = conn.prepareStatement(sql)) {
 
 			stmt.setInt(1, value);
 			stmt.setString(2, playerId);
@@ -186,10 +187,9 @@ public class UserJDBC implements UserDAO {
 			stmt.executeUpdate();
 		} catch (SQLException e) {
 			throw new DbException(e.getMessage());
-		} 
+		}
 
 	}
-
 
 	private PlayerSession instantiateSkuList(ResultSet rs) throws SQLException {
 		PlayerSession get = new PlayerSession();

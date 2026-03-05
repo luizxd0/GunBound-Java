@@ -9,15 +9,14 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
 
+import br.com.gunbound.emulator.db.DatabaseManager;
 import br.com.gunbound.emulator.db.DbException;
 import br.com.gunbound.emulator.model.DAO.ChestDAO;
 import br.com.gunbound.emulator.model.entities.DTO.ChestDTO;
 
 public class ChestJDBC implements ChestDAO {
-	private Connection conn;
 
-	public ChestJDBC(Connection conn) {
-		this.conn = conn;
+	public ChestJDBC() {
 	}
 
 	// Buscar todos os itens de um jogador específico
@@ -25,7 +24,8 @@ public class ChestJDBC implements ChestDAO {
 	public List<ChestDTO> getAllAvatarsByOwnerId(String ownerId) {
 		List<ChestDTO> chestList = new ArrayList<>();
 		String sql = "SELECT * FROM chest WHERE OwnerId = ?";
-		try (PreparedStatement pst = conn.prepareStatement(sql)) {
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement pst = conn.prepareStatement(sql)) {
 			pst.setString(1, ownerId);
 			try (ResultSet rs = pst.executeQuery()) {
 				while (rs.next()) {
@@ -42,7 +42,8 @@ public class ChestJDBC implements ChestDAO {
 	@Override
 	public ChestDTO getByIdx(int idx) {
 		String sql = "SELECT * FROM chest WHERE Idx = ?";
-		try (PreparedStatement pst = conn.prepareStatement(sql)) {
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement pst = conn.prepareStatement(sql)) {
 			pst.setInt(1, idx);
 			try (ResultSet rs = pst.executeQuery()) {
 				if (rs.next()) {
@@ -60,7 +61,8 @@ public class ChestJDBC implements ChestDAO {
 	public int insert(ChestDTO chest) {
 		String sql = "INSERT INTO chest (Item, Wearing, Acquisition, Expire, Volume, PlaceOrder, Recovered, OwnerId, ExpireType) "
 				+ "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-		try (PreparedStatement pst = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement pst = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
 
 			pst.setObject(1, chest.getItem(), Types.INTEGER);
 			pst.setString(2, chest.getWearing());
@@ -88,7 +90,8 @@ public class ChestJDBC implements ChestDAO {
 	@Override
 	public boolean deleteByIdx(int idx) {
 		String sql = "DELETE FROM chest WHERE Idx = ?";
-		try (PreparedStatement pst = conn.prepareStatement(sql)) {
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement pst = conn.prepareStatement(sql)) {
 			pst.setInt(1, idx);
 			return pst.executeUpdate() > 0;
 		} catch (SQLException e) {
@@ -106,7 +109,8 @@ public class ChestJDBC implements ChestDAO {
 	@Override
 	public boolean updatePlaceOrder(int idx, String novoPlaceOrder) {
 		String sql = "UPDATE chest SET PlaceOrder = ? WHERE Idx = ?";
-		try (PreparedStatement pst = conn.prepareStatement(sql)) {
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement pst = conn.prepareStatement(sql)) {
 			pst.setString(1, novoPlaceOrder);
 			pst.setInt(2, idx);
 			return pst.executeUpdate() > 0;
@@ -117,15 +121,14 @@ public class ChestJDBC implements ChestDAO {
 
 	@Override
 	public boolean updateAvatarWearing(Integer idx, String isWearing, String ownerId) {
-		try (PreparedStatement pst = (ownerId != null && idx == null && isWearing == null)
-				? conn.prepareStatement("UPDATE chest SET Wearing = 0 WHERE OwnerId = ?")
-				: conn.prepareStatement("UPDATE chest SET Wearing = ? WHERE Idx = ?")
-						) {
+		String sql = (ownerId != null && idx == null && isWearing == null)
+				? "UPDATE chest SET Wearing = 0 WHERE OwnerId = ?"
+				: "UPDATE chest SET Wearing = ? WHERE Idx = ?";
 
-			if (pst == null)
-				return false;
+		try (Connection conn = DatabaseManager.getConnection();
+				PreparedStatement pst = conn.prepareStatement(sql)) {
 
-			if (ownerId != null  && idx == null && isWearing == null) {
+			if (ownerId != null && idx == null && isWearing == null) {
 				pst.setString(1, ownerId);
 			} else {
 				pst.setString(1, isWearing);
