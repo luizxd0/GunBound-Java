@@ -61,6 +61,7 @@ public class PlayerSession {
 	private int roomTeam = 0; // 0 para Time A, 1 para Time B. Padrão A.
 	private int isAlive = 1;
 	private static final int POWER_USER_ITEM_ID = 204801;
+	private final Set<String> ignoredUserIds = new HashSet<>();
 
 	// Construtor para Iniciar o PlayerSession
 	public PlayerSession() {
@@ -361,6 +362,43 @@ public class PlayerSession {
 
 	public void setIsAlive(int isAlive) {
 		this.isAlive = isAlive;
+	}
+
+	public boolean isUserIgnored(String userId) {
+		String key = normalizeIgnoreKey(userId);
+		if (key.isEmpty()) {
+			return false;
+		}
+		synchronized (ignoredUserIds) {
+			return ignoredUserIds.contains(key);
+		}
+	}
+
+	public void addIgnoredUser(String userId) {
+		String key = normalizeIgnoreKey(userId);
+		if (key.isEmpty()) {
+			return;
+		}
+		synchronized (ignoredUserIds) {
+			ignoredUserIds.add(key);
+		}
+	}
+
+	public void removeIgnoredUser(String userId) {
+		String key = normalizeIgnoreKey(userId);
+		if (key.isEmpty()) {
+			return;
+		}
+		synchronized (ignoredUserIds) {
+			ignoredUserIds.remove(key);
+		}
+	}
+
+	private static String normalizeIgnoreKey(String userId) {
+		if (userId == null) {
+			return "";
+		}
+		return userId.trim().toLowerCase();
 	}
 
 	public PlayerAvatar getAvatarWithHighestPlaceOrder() {
