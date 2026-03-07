@@ -1,8 +1,10 @@
 package br.com.gunbound.emulator.model.entities.game;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.sql.Timestamp;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
@@ -214,7 +216,7 @@ public class PlayerSession {
 	public int getCash() {
 		return cash;
 	}
-	
+
 	public void setCash(int cash) {
 		this.cash = cash;
 	}
@@ -303,7 +305,7 @@ public class PlayerSession {
 		int position = channelPosition & 0x7F;
 		return isPowerUser() ? (position | 0x80) : position;
 	}
-	
+
 	public ChannelHandlerContext getPlayerCtx() {
 		return this.ctx;
 	}
@@ -311,11 +313,11 @@ public class PlayerSession {
 	public Channel getPlayerCtxChannel() {
 		return this.ctx.channel();
 	}
-	
+
 	public int getCurrentTxSum() {
 		return this.ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
 	}
-	
+
 	public byte[] getAuthToken() {
 		return this.ctx.channel().attr(GameAttributes.AUTH_TOKEN).get();
 	}
@@ -352,7 +354,7 @@ public class PlayerSession {
 	public void setRoomTeam(int roomTeam) {
 		this.roomTeam = roomTeam;
 	}
-	
+
 	public int getIsAlive() {
 		return isAlive;
 	}
@@ -360,7 +362,6 @@ public class PlayerSession {
 	public void setIsAlive(int isAlive) {
 		this.isAlive = isAlive;
 	}
-
 
 	public PlayerAvatar getAvatarWithHighestPlaceOrder() {
 		return playerAvatars.stream().max((a, b) -> {
@@ -417,6 +418,5 @@ public class PlayerSession {
 		builder.append("]");
 		return builder.toString();
 	}
-
 
 }

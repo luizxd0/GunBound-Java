@@ -62,14 +62,15 @@ public class PacketUtils {
 	/**
 	 * Sobrecarga do metodo Gera um pacote incluindo o cabeçalho.
 	 * 
-	 * @param player O PlayerSession para quem esta pacote está sendo escrito/enviado.
-	 * @param command          O comando do pacote.
-	 * @param dataBytes        O payload do pacote.
-	 * @param rtc              Se o pacote inicia com bytes zerados (RTC)
+	 * @param player    O PlayerSession para quem esta pacote está sendo
+	 *                  escrito/enviado.
+	 * @param command   O comando do pacote.
+	 * @param dataBytes O payload do pacote.
+	 * @param rtc       Se o pacote inicia com bytes zerados (RTC)
 	 * @return Um ByteBuf representando o pacote completo.
 	 */
 	public static ByteBuf generatePacket(PlayerSession player, int command, ByteBuf dataBytes, boolean rtc) {
-		//Somatória atual do player do contexto
+		// Somatória atual do player do contexto
 		int currentTxSum = player.getCurrentTxSum();
 
 		if (rtc) {
@@ -82,7 +83,7 @@ public class PacketUtils {
 			// O método original irá calcular o tamanho e a sequência corretamente.
 			return generatePacket(currentTxSum, command, rtcPayload);
 		} else {
-			//pacote padrao sem RTC
+			// pacote padrao sem RTC
 			return generatePacket(currentTxSum, command, dataBytes);
 		}
 	}
@@ -114,6 +115,12 @@ public class PacketUtils {
 		return response;
 	}
 
+	public static byte[] getBufferContent(ByteBuf buffer) {
+		byte[] bytes = new byte[buffer.readableBytes()];
+		buffer.getBytes(buffer.readerIndex(), bytes);
+		return bytes;
+	}
+
 	/**
 	 * SOBRECARGA do MÉTODO: Gera um pacote COM RTC.
 	 * 
@@ -123,16 +130,19 @@ public class PacketUtils {
 	 * @param rtc              O Request Time Code (geralmente 0).
 	 * @return Um ByteBuf representando o pacote completo com RTC.
 	 */
-	/*private static ByteBuf generatePacket(int sentPacketLength, int command, ByteBuf dataBytes, int rtc) {
-		// Cria um novo payload que junta o RTC com os dados originais.
-		ByteBuf rtcPayload = Unpooled.buffer(2 + dataBytes.readableBytes());
-		rtcPayload.writeShortLE(rtc);
-		rtcPayload.writeBytes(dataBytes);
-
-		// Chama a função original com este novo payload combinado.
-		// O método original irá calcular o tamanho e a sequência corretamente.
-		return generatePacket(sentPacketLength, command, rtcPayload);
-	}*/
+	/*
+	 * private static ByteBuf generatePacket(int sentPacketLength, int command,
+	 * ByteBuf dataBytes, int rtc) {
+	 * // Cria um novo payload que junta o RTC com os dados originais.
+	 * ByteBuf rtcPayload = Unpooled.buffer(2 + dataBytes.readableBytes());
+	 * rtcPayload.writeShortLE(rtc);
+	 * rtcPayload.writeBytes(dataBytes);
+	 * 
+	 * // Chama a função original com este novo payload combinado.
+	 * // O método original irá calcular o tamanho e a sequência corretamente.
+	 * return generatePacket(sentPacketLength, command, rtcPayload);
+	 * }
+	 */
 
 	/**
 	 * Util para construir os dados de um servidor individual para a resposta de

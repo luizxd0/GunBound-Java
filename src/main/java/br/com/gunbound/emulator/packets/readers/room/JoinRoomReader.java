@@ -11,6 +11,7 @@ import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
 import br.com.gunbound.emulator.model.entities.game.PlayerAvatar;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.MessageBcmReader;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.room.RoomManager;
 import br.com.gunbound.emulator.utils.PacketUtils;
@@ -26,6 +27,8 @@ public class JoinRoomReader {
 	private static final int OPCODE_JOIN_REQUEST = 0x2110;
 	private static final int OPCODE_JOIN_SUCCESS = 0x2111;
 	private static final int OPCODE_PREPARE_JOIN = 0x21F5;
+	private static final byte JOIN_ERROR_WRONG_PASSWORD = 0x11;
+	private static final byte JOIN_ERROR_KICKED_OR_BANNED = 0x1D;
 
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_ROOM_JOIN (0x" + Integer.toHexString(OPCODE_JOIN_REQUEST) + ")");
@@ -43,15 +46,30 @@ public class JoinRoomReader {
 		// 2. Encontrar a sala e verificar a senha
 		GameRoom room = RoomManager.getInstance().getRoomById(roomId);
 
-		//int currentTxSum = ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
+		// int currentTxSum = ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
 
 		if (room == null || !room.checkPassword(password)) {
 			System.err.println("Player " + joiningPlayer.getNickName() + " failed to join room " + roomId
 					+ " (inválida ou senha incorreta).");
 
-			ByteBuf preparePayload = Unpooled.wrappedBuffer(new byte[] { (byte) 0x11, (byte) 0x00 });
-			ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_JOIN_SUCCESS, preparePayload,false);
+			ByteBuf preparePayload = Unpooled.wrappedBuffer(new byte[] { JOIN_ERROR_WRONG_PASSWORD, (byte) 0x00 });
+			ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_JOIN_SUCCESS, preparePayload,
+					false);
 			ctx.writeAndFlush(preparePacket);
+			return;
+		}
+
+		if (room.isBanned(joiningPlayer)) {
+			System.err.println("Player " + joiningPlayer.getNickName() + " is BANNED from room " + roomId);
+			// Retorna erro de "Sala cheia" ou similar que impeça a entrada (11 00 costuma
+			// ser o de restrição/erro genérico)
+			ByteBuf preparePayload = Unpooled
+					.wrappedBuffer(new byte[] { JOIN_ERROR_KICKED_OR_BANNED, (byte) 0x00 });
+			ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_JOIN_SUCCESS, preparePayload,
+					false);
+			ctx.writeAndFlush(preparePacket);
+			MessageBcmReader.printMsgToPlayer(joiningPlayer,
+					"Voce foi kickado desta sala. Aguarde 5 minutos para entrar novamente.");
 			return;
 		}
 
@@ -61,7 +79,8 @@ public class JoinRoomReader {
 			if (playerSlot == -1) {
 				System.err.println("Room " + roomId + " is full. " + joiningPlayer.getNickName() + " could not join.");
 				ByteBuf preparePayload = Unpooled.wrappedBuffer(new byte[] { (byte) 0x01, (byte) 0x20 });
-				ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_JOIN_SUCCESS, preparePayload,false);
+				ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_JOIN_SUCCESS, preparePayload,
+						false);
 				ctx.writeAndFlush(preparePacket);
 				return;
 			}
@@ -70,7 +89,8 @@ public class JoinRoomReader {
 
 			// 1. Gera e envia o primeiro pacote (0x21F5).
 			ByteBuf preparePayload = Unpooled.wrappedBuffer(new byte[] { 0x03 });
-			ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_PREPARE_JOIN, preparePayload, true);
+			ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_PREPARE_JOIN, preparePayload,
+					true);
 
 			// writeAndFlush retorna um "Future", uma promessa de que a operação será
 			// concluída.
@@ -84,10 +104,10 @@ public class JoinRoomReader {
 					System.out.println("Preparation packet (0x21F5) sent successfully.");
 
 					// 3. AGORA, com o tx_sum atualizado, enviamos o segundo pacote.
-					//int updatedTxSum = ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
+					// int updatedTxSum = ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
 					ByteBuf successPayload = writeJoinRoomSuccess(room, joiningPlayer);
 					ByteBuf successPacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_JOIN_SUCCESS,
-							successPayload,false);
+							successPayload, false);
 					ctx.writeAndFlush(successPacket);
 
 					System.out.println(

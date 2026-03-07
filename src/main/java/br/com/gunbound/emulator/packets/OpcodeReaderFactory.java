@@ -58,6 +58,7 @@ public class OpcodeReaderFactory {
 		readers.put(0x3102, RoomChangeItemReader::read); //mudar estados dos itens na sala
 		readers.put(0x3101, RoomChangeOptionReader::read); //Mudar opções da sala
 		readers.put(0x3100, RoomChangeMapReader::read); //altera mapa na sala
+		readers.put(0x3150, RoomCommandReader::readKickPacket); //kick player from room
         readers.put(0x3103, RoomChangeCapacityReader::read); // Mudar capacidade máxima da sala
         readers.put(0x3104, RoomChangeTitleReader::read); //mudar nome da sala
         readers.put(0x3210, RoomChangeTeamReader::read);  //Mudar de time na sala

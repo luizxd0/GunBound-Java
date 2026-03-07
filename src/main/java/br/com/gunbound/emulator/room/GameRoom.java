@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
@@ -60,6 +61,8 @@ public class GameRoom {
 																								// Jogador
 	private final Map<Integer, Boolean> readyStatusBySlot = new ConcurrentHashMap<>(); // Posição (slot) -> Status de
 																						// Pronto
+
+	private final Map<String, Long> bannedUserIds = new ConcurrentHashMap<>(); // UserId -> Expiry Timestamp
 
 	// Quando a partida é score ajustar os placares baseados na qtd de player da
 	// sala
@@ -206,6 +209,55 @@ public class GameRoom {
 
 	public void releaseSlot(int slot) {
 		this.availableSlots.add(slot);
+	}
+
+	public void addBan(String userId) {
+		String banKey = normalizeBanKey(userId);
+		if (banKey.isEmpty()) {
+			return;
+		}
+		long expiry = System.currentTimeMillis() + (5 * 60 * 1000); // 5 minutes
+		bannedUserIds.put(banKey, expiry);
+		System.out.println("Room " + (roomId + 1) + ": User " + banKey + " banned for 5 minutes.");
+	}
+
+	public void addBan(PlayerSession player) {
+		if (player == null) {
+			return;
+		}
+		// Track both account id and nickname to avoid variant-client mismatches.
+		addBan(player.getUserNameId());
+		addBan(player.getNickName());
+	}
+
+	public boolean isBanned(String userId) {
+		String banKey = normalizeBanKey(userId);
+		if (banKey.isEmpty()) {
+			return false;
+		}
+		Long expiry = bannedUserIds.get(banKey);
+		if (expiry == null) {
+			return false;
+		}
+		if (System.currentTimeMillis() > expiry) {
+			bannedUserIds.remove(banKey);
+			return false;
+		}
+		return true;
+	}
+
+	public boolean isBanned(PlayerSession player) {
+		if (player == null) {
+			return false;
+		}
+		return isBanned(player.getUserNameId()) || isBanned(player.getNickName());
+	}
+
+	private static String normalizeBanKey(String raw) {
+		if (raw == null) {
+			return "";
+		}
+		return raw.trim().toLowerCase(Locale.ROOT);
 	}
 
 	public boolean isFull() {
@@ -787,6 +839,59 @@ public class GameRoom {
 
 		notifyPayload.release();
 		System.out.println("Join notification (0x3010) sent to " + (getPlayerCount() - 1) + " player(s).");
+	}
+
+	public void broadcastChat(PlayerSession sender, String message) {
+		byte[] messageBytes = message.getBytes(StandardCharsets.ISO_8859_1);
+		int slot = getSlotPlayer(sender);
+
+		// snapshot for concurrency
+		List<PlayerSession> recipients = new ArrayList<>(playersBySlot.values());
+
+		for (PlayerSession recipient : recipients) {
+			// Skip if recipient ignored sender
+			if (recipient.isUserIgnored(sender.getUserNameId())) {
+				continue;
+			}
+
+			ByteBuf chatPayload = Unpooled.buffer();
+			chatPayload.writeByte(slot);
+			chatPayload.writeByte(messageBytes.length);
+			chatPayload.writeBytes(messageBytes);
+
+			// 0x201F is broadcast chat, but rooms might use something else if in-game.
+			// However, usually it's normalized. Let's use 0x201F as a baseline or check
+			// RoomWriter.
+			// Actually, 0x2410 is often used for in-room chat.
+			// Looking at common structures, Lobby is 0x2010/0x201F. Room is often 0x2410.
+			final int OPCODE_ROOM_CHAT = 0x2410;
+
+			try {
+				byte[] authToken = recipient.getPlayerCtxChannel().attr(GameAttributes.AUTH_TOKEN).get();
+				byte[] encryptedPayload = GunBoundCipher.gunboundDynamicEncrypt(
+						PacketUtils.getBufferContent(chatPayload),
+						recipient.getUserNameId(),
+						recipient.getPassword(),
+						authToken,
+						OPCODE_ROOM_CHAT);
+
+				ByteBuf finalPacket = PacketUtils.generatePacket(recipient, OPCODE_ROOM_CHAT,
+						Unpooled.wrappedBuffer(encryptedPayload), false);
+
+				recipient.getPlayerCtxChannel().writeAndFlush(finalPacket);
+			} catch (Exception e) {
+				System.err.println("Failed to send room chat to " + recipient.getNickName());
+			} finally {
+				chatPayload.release();
+			}
+		}
+	}
+
+	public void broadcastSystemMessage(String message) {
+		List<PlayerSession> recipients = new ArrayList<>(playersBySlot.values());
+		for (PlayerSession recipient : recipients) {
+			MessageBcmReader.printMsgToPlayer(recipient, message);
+		}
 	}
 
 	/**
