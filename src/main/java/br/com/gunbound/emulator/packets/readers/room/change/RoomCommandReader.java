@@ -60,6 +60,59 @@ public class RoomCommandReader {
 						.println("[BCM-CMD] Player " + player.getNickName() + " tried to use /bcm without authority.");
 				MessageBcmReader.printMsgToPlayer(player, "ADMIN >> You don't have permission to use this command.");
 			}
+		} else if (normalizedCommand.equals("gold") || normalizedCommand.equals("cash")) {
+			if (player.getAuthority() <= 0) {
+				MessageBcmReader.printMsgToPlayer(player, "ADMIN >> You don't have permission to use this command.");
+				return;
+			}
+
+			String[] parts = paramCmd.split(" ");
+			if (parts.length < 2) {
+				MessageBcmReader.printMsgToPlayer(player, "USAGE >> /" + normalizedCommand + " <NickName> <amount>");
+				return;
+			}
+
+			String targetNick = parts[0];
+			int amount;
+			try {
+				amount = Integer.parseInt(parts[1]);
+			} catch (NumberFormatException e) {
+				MessageBcmReader.printMsgToPlayer(player, "ERROR >> Invalid amount.");
+				return;
+			}
+
+			br.com.gunbound.emulator.model.DAO.UserDAO userDAO = br.com.gunbound.emulator.model.DAO.DAOFactory
+					.CreateUserDao();
+			br.com.gunbound.emulator.model.entities.DTO.UserDTO targetUser = userDAO.getUserByNickname(targetNick);
+
+			if (targetUser == null) {
+				MessageBcmReader.printMsgToPlayer(player, "ERROR >> Player not found: " + targetNick);
+				return;
+			}
+
+			if (normalizedCommand.equals("gold")) {
+				userDAO.updateAddGold(targetUser.getUserId(), amount);
+			} else {
+				userDAO.updateAddCash(targetUser.getUserId(), amount);
+			}
+
+			br.com.gunbound.emulator.model.entities.game.PlayerSessionManager playerSessionManager = br.com.gunbound.emulator.model.entities.game.PlayerSessionManager
+					.getInstance();
+			PlayerSession targetSession = playerSessionManager.getSessionPlayerByNickname(targetNick);
+			if (targetSession != null) {
+				if (normalizedCommand.equals("gold")) {
+					targetSession.setGold(targetSession.getGold() + amount);
+				} else {
+					targetSession.setCash(targetSession.getCash() + amount);
+				}
+				br.com.gunbound.emulator.packets.readers.LoginReader.pushSessionStatsRefresh(targetSession);
+			}
+
+			MessageBcmReader.printMsgToPlayer(player,
+					"SUCCESS >> " + amount + " " + normalizedCommand + " given to " + targetNick);
+			System.out.println("[ADMIN-CMD] " + player.getNickName() + " gave " + amount + " " + normalizedCommand
+					+ " to " + targetNick);
+
 		} else if (normalizedCommand.equals("start")) {
 			if (room == null)
 				return;

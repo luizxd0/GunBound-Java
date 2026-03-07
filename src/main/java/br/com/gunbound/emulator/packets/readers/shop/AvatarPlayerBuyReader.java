@@ -55,8 +55,9 @@ public class AvatarPlayerBuyReader {
 			Integer idNewAvatarOnChest = null;
 
 			if (avatarData != null) {
-				int priceAvatar = avatarData.getPriceByGoldForI();
-				// Player may have no avatars yet (first purchase) – use "0" as initial place order
+				int priceAvatar = 0;
+				// Player may have no avatars yet (first purchase) – use "0" as initial place
+				// order
 				String highestPlaceOrder = null;
 				if (player.getAvatarWithHighestPlaceOrder() != null) {
 					highestPlaceOrder = player.getAvatarWithHighestPlaceOrder().getPlaceOrder();
@@ -73,13 +74,13 @@ public class AvatarPlayerBuyReader {
 				avatarBought.setWearing(Integer.toString(0));
 
 				if (avatarCode == 204802) {
-					avatarBought.setItem(204801);//fixa o codigo do PU
+					avatarBought.setItem(204801);// fixa o codigo do PU
 					avatarBought.setExpire(Timestamp.valueOf(LocalDateTime.now().plusDays(7)));
 				} else if (avatarCode == 204803) {
-					avatarBought.setItem(204801);//fixa o codigo do PU
+					avatarBought.setItem(204801);// fixa o codigo do PU
 					avatarBought.setExpire(Timestamp.valueOf(LocalDateTime.now().plusDays(14)));
 				} else if (avatarCode == 204804) {
-					avatarBought.setItem(204801);//fixa o codigo do PU
+					avatarBought.setItem(204801);// fixa o codigo do PU
 					avatarBought.setExpire(Timestamp.valueOf(LocalDateTime.now().plusDays(30)));
 				} else {
 					avatarBought.setExpire(null);
@@ -91,11 +92,25 @@ public class AvatarPlayerBuyReader {
 				avatarBought.setExpireType("I");
 
 				if (goldOrCash == 0) {// Comprado com Gold
+					priceAvatar = avatarData.getPriceByGoldForI();
+					if (player.getGold() < priceAvatar) {
+						sendError(ctx, player);
+						System.err.println("Player " + player.getNickName() + " has insufficient Gold: "
+								+ player.getGold() + " < " + priceAvatar);
+						return;
+					}
 					avatarBought.setAcquisition("G");
 					factoryUserDAO.updateMinusGold(player.getUserNameId(), priceAvatar);
 					player.setGold(player.getGold() - priceAvatar);
 
 				} else if (goldOrCash == 1) {// Comprado com Cash
+					priceAvatar = avatarData.getPriceByCashForI();
+					if (player.getCash() < priceAvatar) {
+						sendError(ctx, player);
+						System.err.println("Player " + player.getNickName() + " has insufficient Cash: "
+								+ player.getCash() + " < " + priceAvatar);
+						return;
+					}
 					avatarBought.setAcquisition("C");
 					factoryUserDAO.updateMinusCash(player.getUserNameId(), priceAvatar);
 					player.setCash(player.getCash() - priceAvatar);
@@ -111,9 +126,10 @@ public class AvatarPlayerBuyReader {
 				// Keep session avatar cache in sync so PU effect is active immediately.
 				player.getPlayerAvatars().add(new PlayerAvatar(avatar));
 				avatar.setItem(avatarCode);
-				
+
 				// chama o metodo para escrever o avatar no shopping
-				//writeNewAvatar(ctx, factoryChestDAO, idNewAvatarOnChest); // desativado pelo hacky do PU
+				// writeNewAvatar(ctx, factoryChestDAO, idNewAvatarOnChest); // desativado pelo
+				// hacky do PU
 				writeNewAvatar(ctx, avatar);
 
 				System.out.println("Avatar purchase request received: " + avatarData.getMenuName() + " [ "
@@ -146,13 +162,14 @@ public class AvatarPlayerBuyReader {
 
 	}
 
-	//Hacky por causa do PU
-	//private static void writeNewAvatar(ChannelHandlerContext ctx, ChestDAO chestDao, int idxAvatar) {
-		private static void writeNewAvatar(ChannelHandlerContext ctx, ChestDTO chestNew) {
+	// Hacky por causa do PU
+	// private static void writeNewAvatar(ChannelHandlerContext ctx, ChestDAO
+	// chestDao, int idxAvatar) {
+	private static void writeNewAvatar(ChannelHandlerContext ctx, ChestDTO chestNew) {
 		System.out.println("SEND> SVC_ITEM_CONFIRMATION (0x" + Integer.toHexString(OPCODE_CONFIRMATION) + ")");
 		PlayerSession player = ctx.channel().attr(GameAttributes.USER_SESSION).get();
 
-		//ChestDTO avatar = chestDao.getByIdx(idxAvatar);
+		// ChestDTO avatar = chestDao.getByIdx(idxAvatar);
 		ChestDTO avatar = chestNew;
 		if (player == null || avatar == null)
 			return;
@@ -177,14 +194,22 @@ public class AvatarPlayerBuyReader {
 		}
 
 		// Envia o pacote
-		//int txSum = player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
-		ByteBuf finalPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION, avatarData,false);
+		// int txSum = player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
+		ByteBuf finalPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION, avatarData, false);
 
 		player.getPlayerCtxChannel().writeAndFlush(finalPacket);
 
 	}
-		
-		//packet para erro no shop
-		// 09 00 A0 6C 21 60 04 00  00 
+
+	private static void sendError(ChannelHandlerContext ctx, PlayerSession player) {
+		System.out.println("SEND> SVC_SHOP_ERROR (0x" + Integer.toHexString(OPCODE_CONFIRMATION) + ")");
+		ByteBuf errorData = Unpooled.buffer();
+		errorData.writeBytes(new byte[] { 0x04, 0x00, 0x00 });
+		ByteBuf finalPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION, errorData, true);
+		ctx.channel().writeAndFlush(finalPacket);
+	}
+
+	// packet para erro no shop
+	// 09 00 A0 6C 21 60 04 00 00
 
 }
