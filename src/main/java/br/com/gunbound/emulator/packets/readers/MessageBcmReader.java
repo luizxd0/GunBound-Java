@@ -25,6 +25,13 @@ public class MessageBcmReader {
 			return; // Jogador não está logado ou não está em uma sala (Possivel Hack)
 		}
 
+		if (session.getAuthority() <= 0) {
+			System.out.println("[BCM-OP] Player " + session.getNickName()
+					+ " tried to use BCM opcode (0x5010) without authority.");
+			printMsgToPlayer(session, "ADMIN >> You don't have permission to use this command.");
+			return;
+		}
+
 		try {
 			// 1. Descriptografa o payload do chat
 			byte[] authToken = ctx.channel().attr(GameAttributes.AUTH_TOKEN).get();
@@ -39,7 +46,7 @@ public class MessageBcmReader {
 
 			// logs para depuração
 			System.out.println("[DEBUG] Iniciando broadcast de: " + session.getNickName());
-			
+
 			// 3. Pede ao canal atual do jogador para fazer o broadcast da mensagem
 			broadcastSendMessage(chatMessage);
 
@@ -55,7 +62,7 @@ public class MessageBcmReader {
 		Collection<PlayerSession> recipients = new ArrayList<>(PlayerSessionManager.getInstance().getAllPlayers());
 		for (PlayerSession recipient : recipients) {
 			try {
-				
+
 				printMsgToPlayer(recipient, message);
 
 			} catch (Exception e) {
@@ -64,8 +71,7 @@ public class MessageBcmReader {
 			}
 		}
 	}
-	
-	
+
 	/**
 	 * Gera uma mensagem para que determinado player visualize (Usado no BCM)
 	 * 
@@ -77,7 +83,7 @@ public class MessageBcmReader {
 		byte[] messageBytes = msg.getBytes(StandardCharsets.ISO_8859_1);
 		ByteBuf buffer = Unpooled.wrappedBuffer(messageBytes);
 
-		ByteBuf confirmationPacket = PacketUtils.generatePacket(player, OPCODE_MSG_BCM_RESPONSE, buffer,false);
+		ByteBuf confirmationPacket = PacketUtils.generatePacket(player, OPCODE_MSG_BCM_RESPONSE, buffer, false);
 
 		// Envia o pacote individualmente.
 		player.getPlayerCtxChannel().eventLoop().execute(() -> {
@@ -85,7 +91,5 @@ public class MessageBcmReader {
 		});
 
 	}
-	
-	
-	
+
 }

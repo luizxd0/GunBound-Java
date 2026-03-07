@@ -37,24 +37,32 @@ public class RoomCommandReader {
 		ByteBuf request = Unpooled.wrappedBuffer(payload).skipBytes(1);
 
 		// 1. O payload inteiro é a string do commando. Usamos o stringDecode.
-		String[] commandParts = Utils.stringDecode(request).split(" ", 2);//limita comando em 2 partes
+		String[] commandParts = Utils.stringDecode(request).split(" ", 2);// limita comando em 2 partes
 		String command = commandParts[0];
 		String paramCmd = commandParts.length > 1 ? commandParts[1] : ""; // Valor padrão vazio caso não haja parâmetro
 		String normalizedCommand = command.startsWith("/") ? command.substring(1) : command;
 		System.out.println("COMMAND: " + command);
 		GameRoom room = player.getCurrentRoom();
-		if (room == null) {
-			return;
-		}
 
 		if (normalizedCommand.equals("close")) {
+			if (room == null)
+				return;
 			// deixa fechar se for Master (alterar para authority > 99
 			checkIfaRoomMaster(player, room);
 			MessageBcmReader.printMsgToPlayer(player, "The Room Was Closed");
-			room.submitAction(() -> closeRoom(player, room),ctx);
+			room.submitAction(() -> closeRoom(player, room), ctx);
 		} else if (normalizedCommand.equals("bcm")) {
-			MessageBcmReader.broadcastSendMessage(paramCmd);
+			if (player.getAuthority() > 0) {
+				MessageBcmReader.broadcastSendMessage(paramCmd);
+				System.out.println("[BCM-CMD] Admin " + player.getNickName() + " broadcasted: " + paramCmd);
+			} else {
+				System.out
+						.println("[BCM-CMD] Player " + player.getNickName() + " tried to use /bcm without authority.");
+				MessageBcmReader.printMsgToPlayer(player, "ADMIN >> You don't have permission to use this command.");
+			}
 		} else if (normalizedCommand.equals("start")) {
+			if (room == null)
+				return;
 			if (!player.equals(room.getRoomMaster())) {
 				MessageBcmReader.printMsgToPlayer(player, "Only room master can start.");
 				return;
@@ -65,7 +73,7 @@ public class RoomCommandReader {
 			}
 			MessageBcmReader.printMsgToPlayer(player, "Starting Jewel game...");
 			room.submitAction(() -> room.startGame(new byte[0]), ctx);
-		}else {
+		} else {
 			MessageBcmReader.printMsgToPlayer(player, "ADMIN >> Unknown Command");
 		}
 
@@ -91,7 +99,7 @@ public class RoomCommandReader {
 							System.out.println("RoomID: " + (room.getRoomId() + 1) + ", Command Sent: '0x"
 									+ Integer.toHexString(OPCODE_CONFIRMATION_CMD) + "'");
 							// update sem payload com RTC.
-							//RoomWriter.writeRoomUpdate(playerInRoom);
+							// RoomWriter.writeRoomUpdate(playerInRoom);
 						}
 					});
 		}

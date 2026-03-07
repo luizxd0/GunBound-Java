@@ -35,6 +35,24 @@ public class LobbyChatReader {
 
 			System.out.println("[CHAT] " + session.getNickName() + ": " + chatMessage);
 
+			// -- INICIO CHECK COMANDO /bcm --
+			if (chatMessage.startsWith("/bcm ")) {
+				if (session.getAuthority() > 0) {
+					String bcmMessage = chatMessage.substring(5).trim();
+					if (!bcmMessage.isEmpty()) {
+						br.com.gunbound.emulator.packets.readers.MessageBcmReader.broadcastSendMessage(bcmMessage);
+						System.out.println("[BCM-CMD] Admin " + session.getNickName() + " broadcasted: " + bcmMessage);
+					}
+				} else {
+					System.out.println(
+							"[BCM-CMD] Player " + session.getNickName() + " tried to use /bcm without authority.");
+					br.com.gunbound.emulator.packets.readers.MessageBcmReader.printMsgToPlayer(session,
+							"ADMIN >> You don't have permission to use this command.");
+				}
+				return; // Interrompe para não enviar como chat normal
+			}
+			// -- FIM CHECK COMANDO /bcm --
+
 			// 3. Pede ao canal atual do jogador para fazer o broadcast da mensagem
 			broadcastChatMessage(session, chatMessage);
 
@@ -58,7 +76,8 @@ public class LobbyChatReader {
 		// snapshot para evitar concorrência
 		Collection<PlayerSession> recipients = new ArrayList<>(sender.getCurrentLobby().getPlayersInLobby().values());
 		for (PlayerSession recipient : recipients) {
-			//for (PlayerSession recipient : sender.getCurrentLobby().getPlayersInLobby().values()) {
+			// for (PlayerSession recipient :
+			// sender.getCurrentLobby().getPlayersInLobby().values()) {
 			try {
 				// 3. Encripta o payload para cada destinatário.
 				byte[] authToken = recipient.getPlayerCtxChannel().attr(GameAttributes.AUTH_TOKEN).get();
@@ -69,9 +88,10 @@ public class LobbyChatReader {
 						recipient.getPassword(), authToken, OPCODE_CHAT_BROADCAST);
 
 				// 4. Gera o pacote final e envia
-				//int txSum = recipient.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
+				// int txSum =
+				// recipient.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
 				ByteBuf finalPacket = PacketUtils.generatePacket(recipient, OPCODE_CHAT_BROADCAST,
-						Unpooled.wrappedBuffer(encryptedPayload),false);
+						Unpooled.wrappedBuffer(encryptedPayload), false);
 
 				System.out.println("[DEBUG] Mensagem de: " + sender.getNickName() + " sendo enviada para : "
 						+ recipient.getNickName() + " no Canal ID: " + sender.getCurrentLobby().getId());
