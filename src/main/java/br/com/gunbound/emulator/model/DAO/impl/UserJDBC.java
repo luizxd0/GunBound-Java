@@ -147,6 +147,24 @@ public class UserJDBC implements UserDAO {
 		} 
 
 	}
+	
+	@Override
+	public void applyMatchResult(String playerId, int goldDelta, int gpDelta) {
+		String sql = "UPDATE Game "
+				+ "SET Gold = GREATEST(0, Gold + ?), "
+				+ "TotalScore = GREATEST(0, TotalScore + ?), "
+				+ "SeasonScore = GREATEST(0, SeasonScore + ?) "
+				+ "WHERE UserId = ?";
+		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+			stmt.setInt(1, goldDelta);
+			stmt.setInt(2, gpDelta);
+			stmt.setInt(3, gpDelta);
+			stmt.setString(4, playerId);
+			stmt.executeUpdate();
+		} catch (SQLException e) {
+			throw new DbException(e.getMessage());
+		}
+	}
 
 
 	private PlayerSession instantiateSkuList(ResultSet rs) throws SQLException {

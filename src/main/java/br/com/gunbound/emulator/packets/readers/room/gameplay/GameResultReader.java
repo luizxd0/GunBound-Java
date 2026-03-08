@@ -7,6 +7,8 @@ import java.util.Map;
 import org.mariadb.jdbc.plugin.authentication.standard.ed25519.Utils;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
+import br.com.gunbound.emulator.model.DAO.DAOFactory;
+import br.com.gunbound.emulator.model.DAO.UserDAO;
 import br.com.gunbound.emulator.model.entities.game.PlayerGameResult;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.room.GameRoom;
@@ -84,6 +86,7 @@ public class GameResultReader {
 
 		rcvPayload.skipBytes(8);
 		
+		persistMatchRewards(room, qtdPlayers);
 		
 		//announceScorePlayer(room);
 
@@ -111,6 +114,53 @@ public class GameResultReader {
 		
 		//announceScorePlayer(room);
 		room.isGameStarted(false);// sala deixa de estar em estado playing
+	}
+	
+	private static void persistMatchRewards(GameRoom room, int reportedResultCount) {
+		if (room == null) {
+			return;
+		}
+
+		if (room.getResultGameBySlot().size() < reportedResultCount) {
+			return;
+		}
+
+		if (!room.tryPersistMatchRewards()) {
+			System.out.println("[MATCH_REWARD] Rewards already persisted for room " + (room.getRoomId() + 1));
+			return;
+		}
+
+		try (UserDAO userDAO = DAOFactory.CreateUserDao()) {
+			for (Map.Entry<Integer, PlayerSession> entry : room.getPlayersBySlot().entrySet()) {
+				int slot = entry.getKey();
+				PlayerSession player = entry.getValue();
+				PlayerGameResult pResult = room.getResultGameBySlot().get(slot);
+				if (pResult == null) {
+					continue;
+				}
+
+				int goldDelta = sumRewards(pResult.getNormalGold(), pResult.getBonusGold());
+				int gpDelta = sumRewards(pResult.getNormalGp(), pResult.getBonusGp());
+				if (goldDelta == 0 && gpDelta == 0) {
+					continue;
+				}
+
+				userDAO.applyMatchResult(player.getUserNameId(), goldDelta, gpDelta);
+				player.setGold(Math.max(0, player.getGold() + goldDelta));
+				player.setTotalScore(Math.max(0, player.getTotalScore() + gpDelta));
+				player.setSeasonScore(Math.max(0, player.getSeasonScore() + gpDelta));
+				System.out.println("[MATCH_REWARD] " + player.getNickName() + " gold=" + goldDelta + ", gp=" + gpDelta);
+			}
+		} catch (Exception e) {
+			System.err.println("Erro ao persistir recompensa da partida: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+	
+	private static int sumRewards(Integer normal, Integer bonus) {
+		int normalValue = normal == null ? 0 : normal.intValue();
+		int bonusValue = bonus == null ? 0 : bonus.intValue();
+		return normalValue + bonusValue;
 	}
 
 	//This is Just used on Season 2 Versions.

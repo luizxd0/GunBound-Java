@@ -12,6 +12,9 @@ public interface UserDAO extends AutoCloseable {
 	//operacoes com Cash
 	void updateMinusCash(String playerId, int value);
 	void updateAddCash(String playerId, int value);
+	
+	//operacoes de recompensa de partida
+	void applyMatchResult(String playerId, int goldDelta, int gpDelta);
 
 	@Override
 	void close();

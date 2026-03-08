@@ -65,6 +65,7 @@ public class GameRoom {
 	
 	//Flag para ter apenas um endGame por partida se não vira bagunça
 	private final AtomicBoolean endGameTriggered = new AtomicBoolean(false);
+	private final AtomicBoolean rewardsPersisted = new AtomicBoolean(false);
 
 
 	// Fila thread-safe que mantém os IDs disponíveis, sempre oferecendo o menor
@@ -298,6 +299,14 @@ public class GameRoom {
 	    endGameTriggered.set(false);
 	}
 
+	public boolean tryPersistMatchRewards() {
+		return rewardsPersisted.compareAndSet(false, true);
+	}
+
+	public void resetMatchRewardsFlag() {
+		rewardsPersisted.set(false);
+	}
+
 	/**
 	 * Realiza toda a checagem se o jogo atingiu condição de fim.
 	 * Se sim, retorna o time vencedor.
@@ -517,6 +526,8 @@ public class GameRoom {
 		
 		//Caso a sala teve um jogo anterior reseta a flag de endGame
 		this.resetEndGameFlag(); 
+		this.resetMatchRewardsFlag();
+		this.cleanResultGameBySlot();
 
 		this.isGameStarted = true;
 		System.out.println("Iniciando jogo na sala " + (roomId + 1));
