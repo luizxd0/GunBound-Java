@@ -58,62 +58,74 @@ public class GameResultReader {
 	}
 
 	public static void processEndGame(GameRoom room, byte[] payload) {
-
 		ByteBuf rcvPayload = Unpooled.wrappedBuffer(payload);
-
-		int qtdPlayers = rcvPayload.readByte();
-
-		for (int i = 0; i < qtdPlayers; i++) {
-			rcvPayload.skipBytes(1);
-
-			int slot = rcvPayload.readByte();
-			int gold = rcvPayload.readShortLE();
-			int BonusGold = rcvPayload.readShortLE();
-			rcvPayload.readShortLE();
-			int gp = rcvPayload.readShortLE();
-			int BonusGp = rcvPayload.readShortLE();
-			rcvPayload.readShortLE();
-			rcvPayload.readShortLE();
-			rcvPayload.readShortLE();
-			
-			PlayerGameResult pResult = new PlayerGameResult(gold, BonusGold, gp, BonusGp);
-			
-			System.out.println("pResult >>> SLOT: " + slot + " Valores: " + pResult);
-
-			room.setResultGameBySlot(slot, pResult);
-
-		}
-
-		rcvPayload.skipBytes(8);
-		
-		persistMatchRewards(room, qtdPlayers);
-		
-		//announceScorePlayer(room);
-
-		ByteBuf buffer = Unpooled.EMPTY_BUFFER;
+		int parsedResults = 0;
 
 		try {
+			if (!rcvPayload.isReadable()) {
+				System.err.println("GameResultReader: payload vazio em 0x4412.");
+			} else {
+				int qtdPlayers = rcvPayload.readUnsignedByte();
+				for (int i = 0; i < qtdPlayers; i++) {
+					// Cada entrada de resultado requer no mínimo 18 bytes neste layout.
+					if (rcvPayload.readableBytes() < 18) {
+						System.err.println("GameResultReader: payload de resultado curto para slot " + i + ". readable="
+								+ rcvPayload.readableBytes());
+						break;
+					}
 
-			for (Map.Entry<Integer, PlayerSession> entry : room.getPlayersBySlot().entrySet()) {
-				PlayerSession player = entry.getValue();
-				//int playerTxSum = player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
-				ByteBuf confirmationPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION, buffer,false);
-				player.getPlayerCtxChannel().writeAndFlush(confirmationPacket);
+					rcvPayload.skipBytes(1);
 
+					int slot = rcvPayload.readUnsignedByte();
+					int gold = rcvPayload.readUnsignedShortLE();
+					int bonusGold = rcvPayload.readUnsignedShortLE();
+					rcvPayload.readUnsignedShortLE();
+					int gp = rcvPayload.readUnsignedShortLE();
+					int bonusGp = rcvPayload.readUnsignedShortLE();
+					rcvPayload.readUnsignedShortLE();
+					rcvPayload.readUnsignedShortLE();
+					rcvPayload.readUnsignedShortLE();
+
+					PlayerGameResult pResult = new PlayerGameResult(gold, bonusGold, gp, bonusGp);
+					System.out.println("pResult >>> SLOT: " + slot + " Valores: " + pResult);
+					room.setResultGameBySlot(slot, pResult);
+					parsedResults++;
+				}
+
+				// Alguns clientes enviam trailer de 8 bytes, outros não (ex: Jewel solo).
+				if (rcvPayload.readableBytes() >= 8) {
+					rcvPayload.skipBytes(8);
+				}
 			}
 
-			
-			
-
+			persistMatchRewards(room, parsedResults);
 		} catch (Exception e) {
-			System.err.println("Erro ao processar Resultado da partida");
+			System.err.println("Erro ao parsear resultado da partida (0x4412): " + e.getMessage());
 			e.printStackTrace();
 		} finally {
-			buffer.release();
+			rcvPayload.release();
 		}
-		
-		//announceScorePlayer(room);
+
+		sendResultConfirmation(room);
 		room.isGameStarted(false);// sala deixa de estar em estado playing
+	}
+
+	private static void sendResultConfirmation(GameRoom room) {
+		if (room == null) {
+			return;
+		}
+
+		try {
+			for (Map.Entry<Integer, PlayerSession> entry : room.getPlayersBySlot().entrySet()) {
+				PlayerSession player = entry.getValue();
+				ByteBuf confirmationPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION, Unpooled.EMPTY_BUFFER,
+						false);
+				player.getPlayerCtxChannel().writeAndFlush(confirmationPacket);
+			}
+		} catch (Exception e) {
+			System.err.println("Erro ao enviar confirmação 0x4413");
+			e.printStackTrace();
+		}
 	}
 	
 	private static void persistMatchRewards(GameRoom room, int reportedResultCount) {
