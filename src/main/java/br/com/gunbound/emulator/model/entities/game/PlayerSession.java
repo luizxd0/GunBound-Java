@@ -36,6 +36,7 @@ public class PlayerSession {
 
 	private int cash;
 	private int gold;
+	private int authority;
 
 	// Avatares
 	private List<PlayerAvatar> playerAvatars = new ArrayList<PlayerAvatar>();
@@ -82,6 +83,7 @@ public class PlayerSession {
 
 		this.gold = user.getGold();
 		this.cash = user.getCash();
+		this.authority = user.getAuthority();
 		this.channelPosition = -1;
 
 		System.out.println("PlayerSession: Jogador: " + this.nickName + " Adicionado na Sessão");
@@ -212,6 +214,14 @@ public class PlayerSession {
 
 	public void setGold(int gold) {
 		this.gold = gold;
+	}
+
+	public int getAuthority() {
+		return authority;
+	}
+
+	public void setAuthority(int authority) {
+		this.authority = authority;
 	}
 
 	public int getMemberGuildCount() {

@@ -26,6 +26,7 @@ import br.com.gunbound.emulator.packets.readers.room.change.RoomChangeOptionRead
 import br.com.gunbound.emulator.packets.readers.room.change.RoomChangeTeamReader;
 import br.com.gunbound.emulator.packets.readers.room.change.RoomChangeTitleReader;
 import br.com.gunbound.emulator.packets.readers.room.change.RoomCommandReader;
+import br.com.gunbound.emulator.packets.readers.room.change.RoomKickReader;
 import br.com.gunbound.emulator.packets.readers.room.change.RoomUserReadyReader;
 import br.com.gunbound.emulator.packets.readers.room.gameplay.GamePlayerDeadReader;
 import br.com.gunbound.emulator.packets.readers.room.gameplay.GamePlayerResurrectReader;
@@ -60,6 +61,7 @@ public class OpcodeReaderFactory {
 		readers.put(0x3100, RoomChangeMapReader::read); //altera mapa na sala
         readers.put(0x3103, RoomChangeCapacityReader::read); // Mudar capacidade máxima da sala
         readers.put(0x3104, RoomChangeTitleReader::read); //mudar nome da sala
+        readers.put(0x3150, RoomKickReader::read); // kick player in room by slot
         readers.put(0x3210, RoomChangeTeamReader::read);  //Mudar de time na sala
         readers.put(0x3230, RoomUserReadyReader::read);  //Esta pronto (ready) ou não
         readers.put(0x2100, RoomListReader::read); // Solicitar lista de salas

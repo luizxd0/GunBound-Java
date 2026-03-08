@@ -5,12 +5,15 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
 import br.com.gunbound.emulator.model.entities.game.PlayerAvatar;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.MessageBcmReader;
+import br.com.gunbound.emulator.packets.readers.room.change.RoomCommandReader;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.room.RoomManager;
 import br.com.gunbound.emulator.utils.PacketUtils;
@@ -26,6 +29,7 @@ public class JoinRoomReader {
 	private static final int OPCODE_JOIN_REQUEST = 0x2110;
 	private static final int OPCODE_JOIN_SUCCESS = 0x2111;
 	private static final int OPCODE_PREPARE_JOIN = 0x21F5;
+	private static final byte[] JOIN_DENY_ROOM_FULL_PAYLOAD = new byte[] { (byte) 0x01, (byte) 0x20 };
 
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_ROOM_JOIN (0x" + Integer.toHexString(OPCODE_JOIN_REQUEST) + ")");
@@ -47,14 +51,25 @@ public class JoinRoomReader {
 
 		if (room == null || !room.checkPassword(password)) {
 			System.err.println("Jogador " + joiningPlayer.getNickName() + " falhou ao entrar na sala " + roomId
-					+ " (inválida ou senha incorreta).");
+					+ " (invalida ou senha incorreta).");
 
 			ByteBuf preparePayload = Unpooled.wrappedBuffer(new byte[] { (byte) 0x11, (byte) 0x00 });
-			ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_JOIN_SUCCESS, preparePayload,false);
+			ByteBuf preparePacket = PacketUtils.generatePacket(joiningPlayer, OPCODE_JOIN_SUCCESS, preparePayload, false);
 			ctx.writeAndFlush(preparePacket);
 			return;
 		}
 
+		if (RoomCommandReader.isRoomKickRestricted(joiningPlayer, roomId)) {
+			long remaining = RoomCommandReader.getKickRestrictionRemainingMillis(joiningPlayer, roomId);
+			long remainingSeconds = Math.max(1L, (remaining + 999L) / 1000L);
+			long remainingMinutes = remainingSeconds / 60L;
+			long secondsPart = remainingSeconds % 60L;
+			String remainingText = remainingMinutes + "m " + secondsPart + "s";
+			System.out.println("GS: Join blocked by /kick restriction for " + joiningPlayer.getNickName() + " in room "
+					+ roomId + " (remaining " + remainingText + ")");
+			sendKickRestrictionDenied(ctx, joiningPlayer, remainingText);
+			return;
+		}
 		try {
 			// 3. Adicionar jogador à sala
 			int playerSlot = room.addPlayer(joiningPlayer);
@@ -112,6 +127,25 @@ public class JoinRoomReader {
 			e.printStackTrace();
 			ctx.close();
 		}
+	}
+
+	private static void sendKickRestrictionDenied(ChannelHandlerContext ctx, PlayerSession player, String remainingText) {
+		// Use the exact same deny payload used by the "room full" path.
+		// Client handles this packet consistently and exits the waiting state.
+		ByteBuf denyPayload = Unpooled.wrappedBuffer(JOIN_DENY_ROOM_FULL_PAYLOAD.clone());
+		ByteBuf denyPacket = PacketUtils.generatePacket(player, OPCODE_JOIN_SUCCESS, denyPayload, false);
+		ctx.writeAndFlush(denyPacket).addListener((ChannelFutureListener) future -> {
+			if (!future.isSuccess()) {
+				System.err.println("GS: Failed to send 0x2111 deny packet for kick restriction: "
+						+ future.cause().getMessage());
+				return;
+			}
+
+			// Delay chat a bit so popup 212 is rendered first, then show remaining time.
+			ctx.channel().eventLoop().schedule(() -> MessageBcmReader.printMsgToPlayer(player,
+					"ADMIN >> You were kicked from this room. Try again in " + remainingText + "."), 350L,
+					TimeUnit.MILLISECONDS);
+		});
 	}
 
 	/**
@@ -267,3 +301,4 @@ public class JoinRoomReader {
 	}
 
 }
+
