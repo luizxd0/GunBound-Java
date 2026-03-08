@@ -6,6 +6,7 @@ import java.util.List;
 import br.com.gunbound.emulator.Connection;
 import br.com.gunbound.emulator.ConnectionManager;
 import br.com.gunbound.emulator.model.entities.ServerOption;
+import br.com.gunbound.emulator.model.entities.game.PlayerSessionManager;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.Utils;
 import io.netty.buffer.ByteBuf;
@@ -164,7 +165,7 @@ public class GunBoundBrokerServerHandler extends ChannelInboundHandlerAdapter {
 		directoryPayload.writeByte(serverOptions.size()); // Número de servidores na lista
 
 		// Usamos a lista thread-safe para obter a ocupação atual.
-		int currentUtilization = worldSession.size();
+		int currentUtilization = PlayerSessionManager.getInstance().getActivePlayerCount();
 
 		// Constrói o payload do diretório, um servidor por vez.
 		for (int i = 0; i < serverOptions.size(); i++) {
