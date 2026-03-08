@@ -74,29 +74,34 @@ useSSL=false
 
 3. Server IP Configuration
 Open `src/main/java/br/com/gunbound/emulator/GunBoundStarter.java`.
-Change the SERVER_HOST constant to your server IP:
+Configure bind and advertised host values:
 ```
     public class GunBoundStarter {
         // ...
-        private static final String SERVER_HOST = "127.0.0.1"; // Change this IP
+        private static final String BIND_HOST = "0.0.0.0";
+        private static final String ADVERTISED_HOST = "51.191.171.234";
         // ...
     }
 ```
-- Use `0.0.0.0` to listen on all interfaces, or `127.0.0.1` for localhost/testing.
+- `BIND_HOST` should normally be `0.0.0.0` for public/LAN hosting.
+- `ADVERTISED_HOST` must be the reachable IP/host that clients connect to.
 
 ▶️ How to Run
 
 Open a terminal in the project's root.
 
-Compile the project:
+Use the helper scripts:
+
+```
+    build.bat
+    start-server.bat
+    start-server.bat --build
+```
+
+If you prefer plain Maven commands:
 
 ```
     mvn clean install
-```
-
-Run the server (ensure your database is up and configured):
-
-```
     mvn exec:java -Dexec.mainClass="br.com.gunbound.emulator.GunBoundStarter"
 ```
 
@@ -157,7 +162,7 @@ Thanks a lot Rizzo!
 
 - **KyLL3R** - _Lead Developer._
 - **ChoVinisTa** - _Co-Developer, Collaborator._
-- **Tiddus (Gui)** - _Collaborator, Valuable support, legacy files._
+- **Tiddus (Gui)** - _Collaborator, Valuable support, classic files._
 - **CarlosX** - _Reference code, packet structures, and invaluable discussions (Thnx bro)._
 - **Garsia** -  _Reference code and packet structure insights._
 - **Jglim** (GitHub) - _Code references and documentation (thank you for your outstanding work!)._
@@ -181,7 +186,7 @@ Thanks a lot Rizzo!
 
 ###### Do you just wanna Play? Join us!
 
-[GunBound Legacy Project](http://www.gunbound.site).
+[GunBound Classic Project](http://www.gunbound.site).
 
 ## License
 

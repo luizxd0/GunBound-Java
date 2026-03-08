@@ -27,14 +27,13 @@ public class AvatarPlayerBuyReader {
 		PlayerSession player = ctx.channel().attr(GameAttributes.USER_SESSION).get();
 		byte[] authToken = ctx.channel().attr(GameAttributes.AUTH_TOKEN).get();
 
-		ChestDAO factoryChestDAO = DAOFactory.CreateChestDao();
-		UserDAO factoryUserDAO = DAOFactory.CreateUserDao();
-
 		if (player == null)
 			return;
 
 		ByteBuf request = Unpooled.buffer();
 		try {
+			try (ChestDAO factoryChestDAO = DAOFactory.CreateChestDao();
+					UserDAO factoryUserDAO = DAOFactory.CreateUserDao()) {
 
 			byte[] decryptedPayload = GunBoundCipher.gunboundDynamicDecrypt(payload, player.getUserNameId(),
 					player.getPassword(), authToken, OPCODE_REQUEST);
@@ -113,7 +112,7 @@ public class AvatarPlayerBuyReader {
 			} else {
 				System.err.println("Não foi encontrado o avatar solicitado. ID: [" + avatarCode + "]");
 			}
-
+			}
 		} catch (Exception e) {
 			System.err.println("Erro ao processar Compra de avatar");
 			e.printStackTrace();

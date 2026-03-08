@@ -161,4 +161,15 @@ public class UserJDBC implements UserDAO {
 		return get;
 	}
 
+	@Override
+	public void close() {
+		if (conn != null) {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				System.err.println("UserJDBC: failed to close DB connection: " + e.getMessage());
+			}
+		}
+	}
+
 }

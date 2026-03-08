@@ -35,8 +35,9 @@ public class GameMenu {
     }
     
     private void load() {
-    	MenuDAO factory = DAOFactory.CreateMenuDao();
-        this.menuList = factory.getAll(); // Carrega TODOS os itens uma vez
+    	try (MenuDAO factory = DAOFactory.CreateMenuDao()) {
+            this.menuList = factory.getAll(); // Carrega TODOS os itens uma vez
+        }
     }
     
     public void reload() {

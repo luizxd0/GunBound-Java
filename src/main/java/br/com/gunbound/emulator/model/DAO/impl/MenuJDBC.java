@@ -112,4 +112,15 @@ public class MenuJDBC implements MenuDAO {
         m.setPriceByGoldForI(JdbcUtils.getNullableInt(rs,"PriceByGoldForI"));
         return m;
     }
+
+	@Override
+	public void close() {
+		if (conn != null) {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				System.err.println("MenuJDBC: failed to close DB connection: " + e.getMessage());
+			}
+		}
+	}
 }

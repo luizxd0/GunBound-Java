@@ -23,11 +23,9 @@ public class AvatarPlayerSortReader {
 		if (player == null)
 			return;
 
-		// 2. Busca o usuário no "banco de dados". e armazena na sessão.
-		ChestDAO factory = DAOFactory.CreateChestDao();
-
 		ByteBuf request = Unpooled.wrappedBuffer(payload);
 		try {
+			try (ChestDAO factory = DAOFactory.CreateChestDao()) {
 			// 1. Lê o cabeçalho do payload
 			int avatarCount = request.readUnsignedByte(); // O primeiro byte é a quantidade
 			request.skipBytes(1); // Pula o byte 0x00 de padding
@@ -64,13 +62,14 @@ public class AvatarPlayerSortReader {
                     System.out.println(" -> Avatar ID " + avatarId + " movido para a posição " + newPosition);
                 } else {
                     System.err.println(" -> AVISO: O jogador " + player.getNickName() + " tentou reordenar um avatar (ID: " + avatarId + ") que não possui.");
-                }
+				}
 			}
 
 			// 4. (Para Debug) Imprime a lista de avatares reordenados
 			System.out.println("Lista de reordenação recebida:");
 			for (PlayerAvatar info : reorderedAvatars) {
 				System.out.println(" -> " + info.getIdx() + " POSITION: " + info.getPlaceOrder());
+			}
 			}
 
 		} catch (Exception e) {

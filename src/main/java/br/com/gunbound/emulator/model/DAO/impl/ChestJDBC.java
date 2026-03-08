@@ -154,4 +154,15 @@ public class ChestJDBC implements ChestDAO {
 		c.setExpireType(rs.getString("ExpireType"));
 		return c;
 	}
+
+	@Override
+	public void close() {
+		if (conn != null) {
+			try {
+				conn.close();
+			} catch (SQLException e) {
+				System.err.println("ChestJDBC: failed to close DB connection: " + e.getMessage());
+			}
+		}
+	}
 }

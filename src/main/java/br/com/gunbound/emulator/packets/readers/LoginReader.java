@@ -33,9 +33,6 @@ public class LoginReader {
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_LOGIN/ADMIN 0x" + Integer.toHexString(LOGIN_REQUEST) + ")");
 
-		// Inicia a Factory para buscar no banco de dados
-		UserDAO factory = DAOFactory.CreateUserDao();
-
 		int currentTxSum = ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
 		// ByteBuf successPacket = Unpooled.buffer();
 
@@ -55,7 +52,10 @@ public class LoginReader {
 		}
 
 		// 2. Busca o usuário no "banco de dados". e armazena na sessão.
-		UserDTO queriedUser = factory.getUserByUserId(userId);
+		UserDTO queriedUser;
+		try (UserDAO factory = DAOFactory.CreateUserDao()) {
+			queriedUser = factory.getUserByUserId(userId);
+		}
 
 		// Valida se usuario existe
 		if (queriedUser == null) {

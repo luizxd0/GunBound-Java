@@ -18,11 +18,9 @@ public class AvatarPlayerConfirmReader {
 		System.out.println("RECV> SVC_PROP_WEARING (0x" + Integer.toHexString(OPCODE_REQUEST) + ")");
 		PlayerSession player = ctx.channel().attr(GameAttributes.USER_SESSION).get();
 
-		// 2. Busca o usuário no "banco de dados". e armazena na sessão.
-		ChestDAO factory = DAOFactory.CreateChestDao();
-
 		ByteBuf request = Unpooled.wrappedBuffer(payload);
 		try {
+			try (ChestDAO factory = DAOFactory.CreateChestDao()) {
 
 			// Zera tudo que ta vestindo
 			factory.updateAvatarWearing(null, null, player.getUserNameId());
@@ -47,6 +45,7 @@ public class AvatarPlayerConfirmReader {
 					}
 				}
 
+			}
 			}
 
 		} catch (Exception e) {

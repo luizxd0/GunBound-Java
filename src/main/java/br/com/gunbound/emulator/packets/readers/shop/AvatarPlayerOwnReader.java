@@ -23,14 +23,13 @@ public class AvatarPlayerOwnReader {
 		if (player == null)
 			return;
 
-		// 2. Busca o usuário no "banco de dados". e armazena na sessão.
-		ChestDAO factory = DAOFactory.CreateChestDao();
-
 		player.getPlayerAvatars().clear();// Limpar a lista de avatares pra nao duplicar no cliente
-		factory.getAllAvatarsByOwnerId(player.getUserNameId()).forEach(avatar -> {
-			player.getPlayerAvatars().add(new PlayerAvatar(avatar));
+		try (ChestDAO factory = DAOFactory.CreateChestDao()) {
+			factory.getAllAvatarsByOwnerId(player.getUserNameId()).forEach(avatar -> {
+				player.getPlayerAvatars().add(new PlayerAvatar(avatar));
 
-		});
+			});
+		}
 
 		int qtdAvatars = player.getPlayerAvatars().size();
 

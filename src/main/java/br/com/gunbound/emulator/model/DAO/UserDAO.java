@@ -2,7 +2,7 @@ package br.com.gunbound.emulator.model.DAO;
 
 import br.com.gunbound.emulator.model.entities.DTO.UserDTO;
 
-public interface UserDAO {
+public interface UserDAO extends AutoCloseable {
 	public UserDTO getUserByUserId(String userIdQuery);
 	
 	//operacoes com Gold
@@ -12,4 +12,7 @@ public interface UserDAO {
 	//operacoes com Cash
 	void updateMinusCash(String playerId, int value);
 	void updateAddCash(String playerId, int value);
+
+	@Override
+	void close();
 }
