@@ -2,16 +2,21 @@ package br.com.gunbound.emulator.packets.writers;
 
 import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
 import br.com.gunbound.emulator.model.entities.game.PlayerAvatar;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.playdata.SpawnPoint;
 import br.com.gunbound.emulator.room.GameRoom;
+import br.com.gunbound.emulator.room.RoomManager;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.Utils;
 import io.netty.buffer.ByteBuf;
@@ -147,6 +152,38 @@ public final class RoomWriter {
 		}
 		buffer.writeBytes(new byte[] { 00 });// what? i dont know is padding?
 		return buffer;
+	}
+
+	/**
+	 * Atualiza a lista de salas no lobby (primeira página) para todos os jogadores
+	 * que estão em canais de lobby.
+	 */
+	public static void broadcastLobbyRoomListRefresh() {
+		Collection<PlayerSession> lobbyPlayers = GunBoundLobbyManager.getInstance().getAllLobby().stream()
+				.flatMap(lobby -> lobby.getPlayersInLobby().values().stream()).collect(Collectors.toList());
+
+		if (lobbyPlayers.isEmpty()) {
+			return;
+		}
+
+		List<GameRoom> sortedRooms = new ArrayList<>(RoomManager.getInstance().getAllRooms());
+		sortedRooms.sort(Comparator.comparingInt((GameRoom room) -> room.hasPowerUserHost() ? 0 : 1)
+				.thenComparingInt(GameRoom::getRoomId));
+
+		int endIndex = Math.min(6, sortedRooms.size());
+		Collection<GameRoom> roomsForPage = endIndex == 0 ? Collections.emptyList() : sortedRooms.subList(0, endIndex);
+
+		for (PlayerSession lobbyPlayer : lobbyPlayers) {
+			if (lobbyPlayer == null || lobbyPlayer.getPlayerCtx() == null) {
+				continue;
+			}
+
+			ByteBuf responsePayload = writeRoomList(roomsForPage);
+			ByteBuf responsePacket = PacketUtils.generatePacket(lobbyPlayer, 0x2103, responsePayload, true);
+
+			lobbyPlayer.getPlayerCtxChannel().eventLoop()
+					.execute(() -> lobbyPlayer.getPlayerCtxChannel().writeAndFlush(responsePacket));
+		}
 	}
 
 	/**

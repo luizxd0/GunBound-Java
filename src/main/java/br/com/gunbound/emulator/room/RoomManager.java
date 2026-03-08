@@ -7,6 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.PriorityBlockingQueue;
 
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.writers.RoomWriter;
 
 /**
  * Gerencia todas as salas de jogo (GameRooms) ativas no servidor. utiliza
@@ -77,6 +78,7 @@ public final class RoomManager {
 			// Devolve o ID para a fila de forma segura para que possa ser reutilizado.
 			availableRoomIds.add(roomId);
 			System.out.println("ROOM MANAGER: Sala " + roomId + " removida e ID liberado.");
+			RoomWriter.broadcastLobbyRoomListRefresh();
 		}
 	}
 

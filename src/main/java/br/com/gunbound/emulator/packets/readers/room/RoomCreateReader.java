@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.writers.RoomWriter;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.room.RoomManager;
 import br.com.gunbound.emulator.room.model.enums.GameMode;
@@ -133,6 +134,7 @@ public class RoomCreateReader {
 			
 			//vamos usar isso aqui
 			createdRoom.setGameMode(gameModeId);
+			RoomWriter.broadcastLobbyRoomListRefresh();
 
 			// 6. Envia pacote de sucesso
 			//int currentTxSum = ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();

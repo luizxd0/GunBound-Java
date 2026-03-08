@@ -15,33 +15,29 @@ public class RoomChangeCapacityReader {
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_ROOM_CHANGE_MAXMEN (0x" + Integer.toHexString(OPCODE_REQUEST) + ")");
 		PlayerSession player = ctx.channel().attr(GameAttributes.USER_SESSION).get();
-		if (player == null)
-			return;
-
-		GameRoom room = player.getCurrentRoom();
-		if (room == null || !player.equals(room.getRoomMaster())) {
-			// Apenas o dono da sala pode mudar a capacidade.
+		if (player == null) {
 			return;
 		}
 
-		// Empacota toda a lógica em um Runnable e submeta para a fila da sala!
-		processChangeMaxMen(payload, player, room);
+		GameRoom room = player.getCurrentRoom();
+		if (room == null || !player.equals(room.getRoomMaster())) {
+			return;
+		}
+
+		room.submitAction(() -> processChangeMaxMen(payload, room), ctx);
 	}
 
-	private static void processChangeMaxMen(byte[] payload, PlayerSession player,
-			GameRoom room) {
-
-		// pega nova capacidade
+	private static void processChangeMaxMen(byte[] payload, GameRoom room) {
 		ByteBuf request = Unpooled.wrappedBuffer(payload);
-		// 1. A nova capacidade é o primeiro byte do payload.
-		int newCapacity = request.readByte();
+		try {
+			int newCapacity = request.readUnsignedByte();
+			room.setCapacity(newCapacity);
+			System.out.println("RoomID: " + room.getRoomId() + ", nova capacidade da sala: " + newCapacity);
 
-		// 2. Atualiza a capacidade na instância da sala.
-		room.setCapacity(newCapacity);
-		System.out.println("RoomID: " + room.getRoomId() + ", nova capacidade da sala: " + newCapacity);
-
-		// update sem payload com RTC.
-		RoomWriter.writeRoomUpdate(player);
-
+			room.broadcastRoomUpdate();
+			RoomWriter.broadcastLobbyRoomListRefresh();
+		} finally {
+			request.release();
+		}
 	}
 }
