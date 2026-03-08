@@ -15,33 +15,34 @@ public class RoomChangeOptionReader {
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_ROOM_CHANGE_OPTION (0x" + Integer.toHexString(OPCODE_REQUEST) + ")");
 		PlayerSession player = ctx.channel().attr(GameAttributes.USER_SESSION).get();
-		if (player == null)
+		if (player == null) {
 			return;
+		}
 
 		GameRoom room = player.getCurrentRoom();
 		if (room == null || !player.equals(room.getRoomMaster())) {
 			return;
 		}
 
-		// Empacota toda a lógica em um Runnable e submeta para a fila da sala!
-		room.submitAction(() -> processChangeOption(payload, player, room),ctx);
+		room.submitAction(() -> processChangeOption(payload, player, room), ctx);
 	}
 
-	private static void processChangeOption(byte[] payload, PlayerSession player,
-			GameRoom room) {
-
+	private static void processChangeOption(byte[] payload, PlayerSession player, GameRoom room) {
 		ByteBuf buffer = Unpooled.wrappedBuffer(payload);
-		int config = buffer.readIntLE();
+		try {
+			int config = buffer.readIntLE();
 
-		System.out.println("[DEBUG] RoomChangeOptionReader: " + config);
-		room.setGameSettings(config);
-		System.out.println("Room " + room.getRoomId() + " opções de jogo alteradas.");
-		
-		
-		short gameModeId = (short) (config >> 16);
-		room.setGameMode(gameModeId);
+			System.out.println("[DEBUG] RoomChangeOptionReader: " + config);
+			room.setGameSettings(config);
+			System.out.println("Room " + room.getRoomId() + " options changed.");
 
-		// update sem payload com RTC.
-		RoomWriter.writeRoomUpdate(player);
+			short gameModeId = (short) (config >> 16);
+			room.setGameMode(gameModeId);
+
+			RoomWriter.writeRoomUpdate(player);
+			RoomWriter.broadcastLobbyRoomListRefresh();
+		} finally {
+			buffer.release();
+		}
 	}
 }

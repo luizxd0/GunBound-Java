@@ -24,17 +24,17 @@ public class RoomChangeCapacityReader {
 			return;
 		}
 
-		room.submitAction(() -> processChangeMaxMen(payload, room), ctx);
+		room.submitAction(() -> processChangeMaxMen(payload, player, room), ctx);
 	}
 
-	private static void processChangeMaxMen(byte[] payload, GameRoom room) {
+	private static void processChangeMaxMen(byte[] payload, PlayerSession player, GameRoom room) {
 		ByteBuf request = Unpooled.wrappedBuffer(payload);
 		try {
 			int newCapacity = request.readUnsignedByte();
 			room.setCapacity(newCapacity);
 			System.out.println("RoomID: " + room.getRoomId() + ", nova capacidade da sala: " + newCapacity);
 
-			room.broadcastRoomUpdate();
+			RoomWriter.writeRoomUpdate(player);
 			RoomWriter.broadcastLobbyRoomListRefresh();
 		} finally {
 			request.release();

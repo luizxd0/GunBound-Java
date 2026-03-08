@@ -24,17 +24,17 @@ public class RoomChangeMapReader {
 			return;
 		}
 
-		room.submitAction(() -> processChangeStage(payload, room), ctx);
+		room.submitAction(() -> processChangeStage(payload, player, room), ctx);
 	}
 
-	private static void processChangeStage(byte[] payload, GameRoom room) {
+	private static void processChangeStage(byte[] payload, PlayerSession player, GameRoom room) {
 		ByteBuf request = Unpooled.wrappedBuffer(payload);
 		try {
 			int newMapId = request.readUnsignedByte();
 			room.setMapId(newMapId);
 			System.out.println("RoomID: " + room.getRoomId() + ", mapa alterado para " + newMapId);
 
-			room.broadcastRoomUpdate();
+			RoomWriter.writeRoomUpdate(player);
 			RoomWriter.broadcastLobbyRoomListRefresh();
 		} finally {
 			request.release();
