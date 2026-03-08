@@ -85,7 +85,7 @@ public final class RoomWriter {
 				buffer.writeBytes(PacketUtils.intToBytes(avatar.getItem(), 3, false));
 				buffer.writeBytes(new byte[] { 00 });
 			});
-		buffer.writeBytes(new byte[] {  01 });
+		buffer.writeByte(newPlayer.hasActivePowerUser() ? 1 : 0);
 
 
 		return buffer;
@@ -136,7 +136,7 @@ public final class RoomWriter {
 
 			buffer.writeByte(room.getMapId());
 			buffer.writeIntLE(room.getGameSettings());
-			buffer.writeBytes(new byte[] { 00 });// tem pu talvez?
+			buffer.writeByte(room.hasPowerUserHost() ? 1 : 0);
 			buffer.writeByte(room.getPlayerCount());
 			buffer.writeByte(room.getCapacity());
 			buffer.writeByte(room.isGameStarted() ? 1 : 0); // Estado do jogo (1=jogando, 0=esperando)

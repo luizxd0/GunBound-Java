@@ -135,6 +135,9 @@ public class AvatarPlayerBuyReader {
 						return;
 					}
 
+					// Mantem a sessao sincronizada com o item real no chest.
+					player.getPlayerAvatars().add(new PlayerAvatar(avatar));
+
 					avatar.setItem(avatarCode);
 
 					// chama o metodo para escrever o avatar no shopping

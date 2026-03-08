@@ -235,7 +235,7 @@ public class JoinRoomReader {
 				});
 			}
 
-			buffer.writeBytes(new byte[] { 01 });
+			buffer.writeByte(player.hasActivePowerUser() ? 1 : 0);
 
 			// buffer.writeBytes(Utils.hexStringToByteArray("00022003"));//ex-item?
 			// buffer.writeBytes(Utils.hexStringToByteArray("00000000"));//ex-item?

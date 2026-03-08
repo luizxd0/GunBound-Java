@@ -1,5 +1,6 @@
 package br.com.gunbound.emulator.model.entities.game;
 
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -12,6 +13,8 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 
 public class PlayerSession {
+	private static final int POWER_USER_ITEM_CODE = 204801;
+
 	private String userId;
 	private String nickName;
 
@@ -282,6 +285,26 @@ public class PlayerSession {
 			Integer orderB = parsePlaceOrder(b.getPlaceOrder());
 			return orderA.compareTo(orderB);
 		}).orElse(null);
+	}
+
+	public boolean hasActivePowerUser() {
+		if (playerAvatars == null || playerAvatars.isEmpty()) {
+			return false;
+		}
+
+		long now = System.currentTimeMillis();
+		List<PlayerAvatar> avatarsSnapshot = new ArrayList<>(playerAvatars);
+		for (PlayerAvatar avatar : avatarsSnapshot) {
+			if (avatar == null || avatar.getItem() != POWER_USER_ITEM_CODE) {
+				continue;
+			}
+
+			Timestamp expireAt = avatar.getExpire();
+			if (expireAt == null || expireAt.getTime() > now) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static Integer parsePlaceOrder(String s) {

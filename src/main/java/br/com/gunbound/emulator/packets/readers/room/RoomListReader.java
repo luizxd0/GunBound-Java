@@ -2,6 +2,7 @@ package br.com.gunbound.emulator.packets.readers.room;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -51,6 +52,10 @@ public class RoomListReader {
 			} else { // ALL ou UNKNOWN
 				filteredRooms = new ArrayList<>(allRooms);
 			}
+
+			// Power user rooms first, then stable order by room id.
+			filteredRooms.sort(Comparator.comparingInt((GameRoom room) -> room.hasPowerUserHost() ? 0 : 1)
+					.thenComparingInt(GameRoom::getRoomId));
 
 			// 3. Calcular a paginação com base no índice inicial
 			int totalRooms = filteredRooms.size();

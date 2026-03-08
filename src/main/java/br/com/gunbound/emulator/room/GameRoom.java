@@ -138,6 +138,10 @@ public class GameRoom {
 		return roomMaster;
 	}
 
+	public boolean hasPowerUserHost() {
+		return roomMaster != null && roomMaster.hasActivePowerUser();
+	}
+
 	public Map<Integer, PlayerSession> getPlayersBySlot() {
 		return playersBySlot;
 	}

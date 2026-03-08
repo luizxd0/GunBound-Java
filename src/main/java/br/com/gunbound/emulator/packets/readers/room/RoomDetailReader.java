@@ -77,7 +77,7 @@ public class RoomDetailReader {
 
 		buffer.writeByte(room.getMapId());
 		buffer.writeIntLE(room.getGameSettings());
-		buffer.writeBytes(new byte[] { 01 });// tem pu talvez?
+		buffer.writeByte(room.hasPowerUserHost() ? 1 : 0);
 		buffer.writeByte(room.getPlayerCount());
 		buffer.writeByte(room.getCapacity());
 
