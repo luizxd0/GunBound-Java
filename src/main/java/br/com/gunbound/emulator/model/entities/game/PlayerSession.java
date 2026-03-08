@@ -67,7 +67,7 @@ public class PlayerSession {
 		this.totalScore = user.getTotalScore();
 		this.seasonScore = user.getSeasonScore();
 		// Level
-		this.rankCurrent = user.getTotalRank();
+		this.rankCurrent = user.getTotalGrade();
 		this.rankSeason = user.getSeasonRank();
 		// Ranking
 		this.totalRank = user.getTotalRank();
@@ -198,7 +198,7 @@ public class PlayerSession {
 	public int getCash() {
 		return cash;
 	}
-	
+
 	public void setCash(int cash) {
 		this.cash = cash;
 	}
@@ -218,7 +218,7 @@ public class PlayerSession {
 	public int getGuildRank() {
 		return guildRank;
 	}
-	
+
 	public ChannelHandlerContext getPlayerCtx() {
 		return this.ctx;
 	}
@@ -226,11 +226,11 @@ public class PlayerSession {
 	public Channel getPlayerCtxChannel() {
 		return this.ctx.channel();
 	}
-	
+
 	public int getCurrentTxSum() {
 		return this.ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
 	}
-	
+
 	public byte[] getAuthToken() {
 		return this.ctx.channel().attr(GameAttributes.AUTH_TOKEN).get();
 	}
@@ -267,7 +267,7 @@ public class PlayerSession {
 	public void setRoomTeam(int roomTeam) {
 		this.roomTeam = roomTeam;
 	}
-	
+
 	public int getIsAlive() {
 		return isAlive;
 	}
@@ -275,7 +275,6 @@ public class PlayerSession {
 	public void setIsAlive(int isAlive) {
 		this.isAlive = isAlive;
 	}
-
 
 	public PlayerAvatar getAvatarWithHighestPlaceOrder() {
 		return playerAvatars.stream().max((a, b) -> {
@@ -332,6 +331,5 @@ public class PlayerSession {
 		builder.append("]");
 		return builder.toString();
 	}
-
 
 }
