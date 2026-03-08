@@ -10,7 +10,9 @@ import br.com.gunbound.emulator.model.DAO.UserDAO;
 import br.com.gunbound.emulator.model.entities.DTO.ChestDTO;
 import br.com.gunbound.emulator.model.entities.DTO.MenuDTO;
 import br.com.gunbound.emulator.model.entities.game.GameMenu;
+import br.com.gunbound.emulator.model.entities.game.PlayerAvatar;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.CashUpdateReader;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.crypto.GunBoundCipher;
 import io.netty.buffer.ByteBuf;
@@ -21,6 +23,9 @@ public class AvatarPlayerBuyReader {
 
 	private static final int OPCODE_REQUEST = 0x6020;
 	private static final int OPCODE_CONFIRMATION = 0x6021;
+	private static final int SHOP_STATUS_OK = 0x0000;
+	private static final int SHOP_STATUS_ERROR = 0x6002;
+	private static final int SHOP_STATUS_NOT_ENOUGH_MONEY = 0x6003;
 
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_PROP_BUY (0x" + Integer.toHexString(OPCODE_REQUEST) + ")");
@@ -32,86 +37,119 @@ public class AvatarPlayerBuyReader {
 
 		ByteBuf request = Unpooled.buffer();
 		try {
-			try (ChestDAO factoryChestDAO = DAOFactory.CreateChestDao();
-					UserDAO factoryUserDAO = DAOFactory.CreateUserDao()) {
+			try (ChestDAO factoryChestDAO = DAOFactory.CreateChestDao(); UserDAO factoryUserDAO = DAOFactory.CreateUserDao()) {
 
-			byte[] decryptedPayload = GunBoundCipher.gunboundDynamicDecrypt(payload, player.getUserNameId(),
-					player.getPassword(), authToken, OPCODE_REQUEST);
+				byte[] decryptedPayload = GunBoundCipher.gunboundDynamicDecrypt(payload, player.getUserNameId(),
+						player.getPassword(), authToken, OPCODE_REQUEST);
 
-			request = Unpooled.wrappedBuffer(decryptedPayload);
+				request = Unpooled.wrappedBuffer(decryptedPayload);
 
-			// 1. Lê o cabeçalho do payload
-			int avatarCode = request.readIntLE(); // O primeiro byte é a quantidade
-			// request.skipBytes(1); // Pula o byte 0x00 de padding
-			int goldOrCash = request.readByte(); // é Gold ou é cash?
+				// payload: dword avatar code + byte moeda (0 = gold, 1 = cash)
+				if (request.readableBytes() < 5) {
+					System.err.println("Pacote de compra de avatar invalido (payload curto).");
+					writeBuyError(ctx, SHOP_STATUS_ERROR);
+					return;
+				}
 
-			GameMenu gameMenu = GameMenu.getInstance();
+				int avatarCode = request.readIntLE();
+				int goldOrCash = request.readUnsignedByte();
 
-			MenuDTO avatarData = gameMenu.getByNo(avatarCode);
+				GameMenu gameMenu = GameMenu.getInstance();
+				MenuDTO avatarData = gameMenu.getByNo(avatarCode);
+				Integer idNewAvatarOnChest = null;
 
-			// indice do avatar inserido
-			Integer idNewAvatarOnChest = null;
+				if (avatarData != null) {
+					int priceAvatar = AvatarShopPricing.resolvePurchasePrice(avatarData, goldOrCash);
+					PlayerAvatar highestOrderAvatar = player.getAvatarWithHighestPlaceOrder();
+					String highestPlaceOrder = highestOrderAvatar == null ? null : highestOrderAvatar.getPlaceOrder();
 
-			if (avatarData != null) {
-				int priceAvatar = avatarData.getPriceByGoldForI();
-				String highestPlaceOrder = player.getAvatarWithHighestPlaceOrder().getPlaceOrder();
+					if (priceAvatar <= 0) {
+						System.err.println("Preco invalido para compra do avatar [" + avatarCode + "] com moeda "
+								+ goldOrCash);
+						writeBuyError(ctx, SHOP_STATUS_ERROR);
+						return;
+					}
 
-				// calculo do place order (util apenas no WC pra frente)
-				if (highestPlaceOrder == null) {
-					highestPlaceOrder = "0";
+					if (goldOrCash == 0 && player.getGold() < priceAvatar) {
+						System.err.println("Gold insuficiente para compra do avatar [" + avatarCode + "]");
+						writeBuyError(ctx, SHOP_STATUS_NOT_ENOUGH_MONEY);
+						return;
+					}
+
+					if (goldOrCash == 1 && player.getCash() < priceAvatar) {
+						System.err.println("Cash insuficiente para compra do avatar [" + avatarCode + "]");
+						writeBuyError(ctx, SHOP_STATUS_NOT_ENOUGH_MONEY);
+						return;
+					}
+
+					// calculo do place order (util apenas no WC pra frente)
+					if (highestPlaceOrder == null) {
+						highestPlaceOrder = "0";
+					} else {
+						highestPlaceOrder = Integer.toString((Integer.parseInt(highestPlaceOrder) + 10000));
+					}
+
+					ChestDTO avatarBought = new ChestDTO();
+					avatarBought.setItem(avatarCode);
+					avatarBought.setWearing(Integer.toString(0));
+
+					if (avatarCode == 204802) {
+						avatarBought.setItem(204801);//fixa o codigo do PU
+						avatarBought.setExpire(Timestamp.valueOf(LocalDateTime.now().plusDays(7)));
+					} else if (avatarCode == 204803) {
+						avatarBought.setItem(204801);//fixa o codigo do PU
+						avatarBought.setExpire(Timestamp.valueOf(LocalDateTime.now().plusDays(14)));
+					} else if (avatarCode == 204804) {
+						avatarBought.setItem(204801);//fixa o codigo do PU
+						avatarBought.setExpire(Timestamp.valueOf(LocalDateTime.now().plusDays(30)));
+					} else {
+						avatarBought.setExpire(null);
+					}
+
+					avatarBought.setVolume(avatarData.getVolume1());
+					avatarBought.setPlaceOrder(highestPlaceOrder);
+					avatarBought.setRecovered("0");
+					avatarBought.setOwnerId(player.getUserNameId());
+					avatarBought.setExpireType("I");
+
+					if (goldOrCash == 0) {// Comprado com Gold
+						avatarBought.setAcquisition("G");
+						factoryUserDAO.updateMinusGold(player.getUserNameId(), priceAvatar);
+						player.setGold(player.getGold() - priceAvatar);
+					} else if (goldOrCash == 1) {// Comprado com Cash
+						avatarBought.setAcquisition("C");
+						factoryUserDAO.updateMinusCash(player.getUserNameId(), priceAvatar);
+						player.setCash(player.getCash() - priceAvatar);
+					} else {
+						System.err.println("Moeda invalida na compra do avatar. Valor recebido: " + goldOrCash);
+						writeBuyError(ctx, SHOP_STATUS_ERROR);
+						return;
+					}
+
+					idNewAvatarOnChest = factoryChestDAO.insert(avatarBought);
+
+					ChestDTO avatar = factoryChestDAO.getByIdx(idNewAvatarOnChest);
+					if (avatar == null) {
+						System.err.println("Avatar comprado nao encontrado no chest: idx=" + idNewAvatarOnChest);
+						writeBuyError(ctx, SHOP_STATUS_ERROR);
+						return;
+					}
+
+					avatar.setItem(avatarCode);
+
+					// chama o metodo para escrever o avatar no shopping
+					// writeNewAvatar(ctx, factoryChestDAO, idNewAvatarOnChest); // desativado pelo hacky do PU
+					writeNewAvatar(ctx, avatar);
+					CashUpdateReader.read(ctx, null);
+
+					System.out.println("Recebida pedido de compra do Avatar : " + avatarData.getMenuName() + " [ "
+							+ avatarCode + "] " + " Moeda: " + (goldOrCash == 0 ? "Gold" : "Cash") + " do jogador "
+							+ player.getNickName());
+
 				} else {
-					highestPlaceOrder = Integer.toString((Integer.parseInt(highestPlaceOrder) + 10000));
+					System.err.println("Nao foi encontrado o avatar solicitado. ID: [" + avatarCode + "]");
+					writeBuyError(ctx, SHOP_STATUS_ERROR);
 				}
-
-				ChestDTO avatarBought = new ChestDTO();
-				avatarBought.setItem(avatarCode);
-				avatarBought.setWearing(Integer.toString(0));
-
-				if (avatarCode == 204802) {
-					avatarBought.setItem(204801);//fixa o codigo do PU
-					avatarBought.setExpire(Timestamp.valueOf(LocalDateTime.now().plusDays(7)));
-				} else if (avatarCode == 204803) {
-					avatarBought.setItem(204801);//fixa o codigo do PU
-					avatarBought.setExpire(Timestamp.valueOf(LocalDateTime.now().plusDays(14)));
-				} else if (avatarCode == 204804) {
-					avatarBought.setItem(204801);//fixa o codigo do PU
-					avatarBought.setExpire(Timestamp.valueOf(LocalDateTime.now().plusDays(30)));
-				} else {
-					avatarBought.setExpire(null);
-				}
-				avatarBought.setVolume(avatarData.getVolume1());
-				avatarBought.setPlaceOrder(highestPlaceOrder);
-				avatarBought.setRecovered("0");
-				avatarBought.setOwnerId(player.getUserNameId());
-				avatarBought.setExpireType("I");
-
-				if (goldOrCash == 0) {// Comprado com Gold
-					avatarBought.setAcquisition("G");
-					factoryUserDAO.updateMinusGold(player.getUserNameId(), priceAvatar);
-					player.setGold(player.getGold() - priceAvatar);
-
-				} else if (goldOrCash == 1) {// Comprado com Cash
-					avatarBought.setAcquisition("C");
-					factoryUserDAO.updateMinusCash(player.getUserNameId(), priceAvatar);
-					player.setCash(player.getCash() - priceAvatar);
-				}
-
-				idNewAvatarOnChest = factoryChestDAO.insert(avatarBought);
-
-				ChestDTO avatar = factoryChestDAO.getByIdx(idNewAvatarOnChest);
-				avatar.setItem(avatarCode);
-				
-				// chama o metodo para escrever o avatar no shopping
-				//writeNewAvatar(ctx, factoryChestDAO, idNewAvatarOnChest); // desativado pelo hacky do PU
-				writeNewAvatar(ctx, avatar);
-
-				System.out.println("Recebida pedido de compra do Avatar : " + avatarData.getMenuName() + " [ "
-						+ avatarCode + "] " + " Moeda: " + (goldOrCash == 0 ? "Gold" : "Cash") + " do jogador "
-						+ player.getNickName());
-
-			} else {
-				System.err.println("Não foi encontrado o avatar solicitado. ID: [" + avatarCode + "]");
-			}
 			}
 		} catch (Exception e) {
 			System.err.println("Erro ao processar Compra de avatar");
@@ -119,29 +157,15 @@ public class AvatarPlayerBuyReader {
 		} finally {
 			request.release();
 		}
-
-		/*
-		 * Envia o pacote int txSum =
-		 * player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get(); ByteBuf
-		 * finalPacket = PacketUtils.generatePacket(txSum, OPCODE_CONFIRMATION, //
-		 * Unpooled.wrappedBuffer(Utils.hexStringToByteArray(new String("00 00 01 00 C8
-		 * // 02 00 00 73 80 01 00").replace(" ","")))); //
-		 * Unpooled.wrappedBuffer(Utils.hexStringToByteArray(new String("00 00 01 00 00
-		 * // 00 00 00 04 20 03 00").replace(" ","")))); Unpooled.wrappedBuffer(Utils
-		 * .hexStringToByteArray(new
-		 * String("00 00 01 00 00 00 00 00 04 20 03 00").replace(" ", ""))));
-		 * player.getPlayerCtx().writeAndFlush(finalPacket);
-		 */
-
 	}
 
-	//Hacky por causa do PU
-	//private static void writeNewAvatar(ChannelHandlerContext ctx, ChestDAO chestDao, int idxAvatar) {
-		private static void writeNewAvatar(ChannelHandlerContext ctx, ChestDTO chestNew) {
+	// Hacky por causa do PU
+	// private static void writeNewAvatar(ChannelHandlerContext ctx, ChestDAO chestDao, int idxAvatar) {
+	private static void writeNewAvatar(ChannelHandlerContext ctx, ChestDTO chestNew) {
 		System.out.println("SEND> SVC_ITEM_CONFIRMATION (0x" + Integer.toHexString(OPCODE_CONFIRMATION) + ")");
 		PlayerSession player = ctx.channel().attr(GameAttributes.USER_SESSION).get();
 
-		//ChestDTO avatar = chestDao.getByIdx(idxAvatar);
+		// ChestDTO avatar = chestDao.getByIdx(idxAvatar);
 		ChestDTO avatar = chestNew;
 		if (player == null || avatar == null)
 			return;
@@ -150,7 +174,7 @@ public class AvatarPlayerBuyReader {
 
 		ByteBuf avatarData = Unpooled.buffer();
 		try {
-			avatarData.writeShort(0);
+			avatarData.writeShortLE(SHOP_STATUS_OK);
 			avatarData.writeByte(1);
 			avatarData.writeByte(0);
 
@@ -161,19 +185,26 @@ public class AvatarPlayerBuyReader {
 			}
 
 		} catch (Exception e) {
-			System.err.println("Erro ao processar Adição de  de avatar(es) no shopping :");
+			System.err.println("Erro ao processar adicao de avatar no shopping:");
 			e.printStackTrace();
 		}
 
-		// Envia o pacote
-		//int txSum = player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
-		ByteBuf finalPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION, avatarData,false);
-
+		ByteBuf finalPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION, avatarData, false);
 		player.getPlayerCtxChannel().writeAndFlush(finalPacket);
-
 	}
-		
-		//packet para erro no shop
-		// 09 00 A0 6C 21 60 04 00  00 
 
+	private static void writeBuyError(ChannelHandlerContext ctx, int statusCode) {
+		PlayerSession player = ctx.channel().attr(GameAttributes.USER_SESSION).get();
+		if (player == null)
+			return;
+
+		ByteBuf data = Unpooled.buffer();
+		try {
+			data.writeShortLE(statusCode);
+			ByteBuf finalPacket = PacketUtils.generatePacket(player, OPCODE_CONFIRMATION, data, false);
+			player.getPlayerCtxChannel().writeAndFlush(finalPacket);
+		} finally {
+			data.release();
+		}
+	}
 }
