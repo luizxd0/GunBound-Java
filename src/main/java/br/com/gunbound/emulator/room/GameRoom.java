@@ -496,6 +496,10 @@ public class GameRoom {
 	 * Lógica principal para iniciar o jogo.
 	 */
 	private static final int OPCODE_START_GAME = 0x3432;
+	private static final int START_METADATA_BASE_LENGTH = 4;
+	private static final int JEWEL_SYNC_ENTRY_COUNT = 6;
+	private static final int JEWEL_SYNC_ENTRY_SIZE = 3;
+	private static final int JEWEL_SYNC_BOUND = 100;
 	private final Random random = new Random();
 
 	public void startGame(byte[] payload) {
@@ -594,8 +598,9 @@ public class GameRoom {
 
 
 		// 6. Constrói e envia o pacote de início
+		byte[] startMetadata = buildStartMetadata(payload);
 		ByteBuf startPayload = Unpooled
-				.wrappedBuffer(RoomWriter.writeGameStartPacketTest(this, turnOrder, playerSpawns, payload));
+				.wrappedBuffer(RoomWriter.writeGameStartPacketTest(this, turnOrder, playerSpawns, startMetadata));
 		System.out.println("[DEBUG] Antes Start -> " + Utils.bytesToHex(startPayload.array()));
 
 		// 6. Envia o pacote criptografado e com padding para cada jogador
@@ -638,6 +643,39 @@ public class GameRoom {
 	 * própria sala é responsável por criar e enviar o pacote para cada membro com a
 	 * sequência correta.
 	 */
+	private byte[] buildStartMetadata(byte[] clientPayload) {
+		boolean jewelMode = GameMode.fromId(this.gameMode) == GameMode.JEWEL;
+		int expectedLength = jewelMode ? START_METADATA_BASE_LENGTH + (JEWEL_SYNC_ENTRY_COUNT * JEWEL_SYNC_ENTRY_SIZE)
+				: START_METADATA_BASE_LENGTH;
+
+		if (clientPayload != null && clientPayload.length == expectedLength) {
+			return clientPayload;
+		}
+
+		ByteBuf generated = Unpooled.buffer(expectedLength);
+		try {
+			// Same metadata shape used by the client start button (0x3430).
+			generated.writeIntLE((int) (System.nanoTime() / 1_000_000L));
+
+			if (jewelMode) {
+				for (int i = 0; i < JEWEL_SYNC_ENTRY_COUNT; i++) {
+					generated.writeShortLE(random.nextInt(0x10000));
+					generated.writeByte(random.nextInt(JEWEL_SYNC_BOUND));
+				}
+			}
+
+			byte[] metadata = new byte[generated.readableBytes()];
+			generated.readBytes(metadata);
+
+			System.out.println("[START] Fallback metadata generated. mode=" + GameMode.fromId(this.gameMode).getName()
+					+ ", expectedLen=" + expectedLength + ", receivedLen="
+					+ (clientPayload == null ? -1 : clientPayload.length));
+			return metadata;
+		} finally {
+			generated.release();
+		}
+	}
+
 	private static final int OPCODE_ROOM_UPDATE = 0x3105;
 
 	public void broadcastRoomUpdate() {

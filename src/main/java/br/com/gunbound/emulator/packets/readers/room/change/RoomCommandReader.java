@@ -18,6 +18,7 @@ import br.com.gunbound.emulator.packets.readers.MessageBcmReader;
 import br.com.gunbound.emulator.packets.readers.lobby.LobbyJoin;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.room.RoomManager;
+import br.com.gunbound.emulator.room.model.enums.GameMode;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.Utils;
 import io.netty.buffer.ByteBuf;
@@ -78,6 +79,9 @@ public class RoomCommandReader {
 			break;
 		case "kick":
 			handleKickCommand(ctx, player, paramCmd);
+			break;
+		case "start":
+			handleStartCommand(ctx, player);
 			break;
 		default:
 			MessageBcmReader.printMsgToPlayer(player, "ADMIN >> Unknown Command");
@@ -210,6 +214,32 @@ public class RoomCommandReader {
 		}
 
 		requestKickByMaster(ctx, actor, target);
+	}
+
+	private static void handleStartCommand(ChannelHandlerContext ctx, PlayerSession actor) {
+		GameRoom room = actor.getCurrentRoom();
+		if (room == null) {
+			MessageBcmReader.printMsgToPlayer(actor, "ADMIN >> You are not in a room.");
+			return;
+		}
+		if (room.isGameStarted()) {
+			MessageBcmReader.printMsgToPlayer(actor, "ADMIN >> Game is already in progress.");
+			return;
+		}
+
+		boolean gmOverride = isAdmin(actor);
+		boolean jewelSoloForce = canForceJewelSoloStart(room);
+		if (!gmOverride && !jewelSoloForce) {
+			MessageBcmReader.printMsgToPlayer(actor,
+					"ADMIN >> /start is GM-only. Players can use it only in Jewel with no other players in room.");
+			return;
+		}
+
+		room.submitAction(() -> room.startGame(null), ctx);
+	}
+
+	private static boolean canForceJewelSoloStart(GameRoom room) {
+		return room != null && GameMode.fromId(room.getGameMode()) == GameMode.JEWEL && room.getPlayerCount() == 1;
 	}
 
 	private static void closeRoom(GameRoom room) {
