@@ -37,6 +37,7 @@ public class PlayerSession {
 	private int cash;
 	private int gold;
 	private int authority;
+	private boolean powerUserStateAtLogin;
 
 	// Avatares
 	private List<PlayerAvatar> playerAvatars = new ArrayList<PlayerAvatar>();
@@ -222,6 +223,14 @@ public class PlayerSession {
 
 	public void setAuthority(int authority) {
 		this.authority = authority;
+	}
+
+	public boolean isPowerUserStateAtLogin() {
+		return powerUserStateAtLogin;
+	}
+
+	public void setPowerUserStateAtLogin(boolean powerUserStateAtLogin) {
+		this.powerUserStateAtLogin = powerUserStateAtLogin;
 	}
 
 	public int getMemberGuildCount() {

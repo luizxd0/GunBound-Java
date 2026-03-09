@@ -31,6 +31,8 @@ public class LoginReader {
 
 	private static final int LOGIN_REQUEST = 0x1010;
 	private static final int LOGIN_SUCCESS = 0x1012;
+	private static final int BASE_REWARD_FACTOR = 100;
+	private static final int POWER_USER_REWARD_MULTIPLIER = 5;
 
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_LOGIN/ADMIN 0x" + Integer.toHexString(LOGIN_REQUEST) + ")");
@@ -121,6 +123,7 @@ public class LoginReader {
 				// Cria a sessão do jogador
 				PlayerSession session = new PlayerSession(queriedUser, ctx);
 				loadPlayerAvatars(session);
+				session.setPowerUserStateAtLogin(session.hasActivePowerUser());
 				// --- Parte 4: Finalizar configuração da sessão e entrar no canal ---
 				PlayerSessionManager.getInstance().addPlayer(session);
 				ctx.channel().attr(GameAttributes.USER_SESSION).set(session);
@@ -206,8 +209,9 @@ public class LoginReader {
 		// Cria um buffer temporário para os dados que serão criptografados
 		ByteBuf dataToEncrypt = Unpooled.buffer();
 		dataToEncrypt.writeIntLE(enabledFunctionsMultiple);
-		dataToEncrypt.writeIntLE(100); // ScoreFactor
-		dataToEncrypt.writeIntLE(100); // GoldFactor
+		int rewardFactor = resolveRewardFactor(session);
+		dataToEncrypt.writeIntLE(rewardFactor); // ScoreFactor
+		dataToEncrypt.writeIntLE(rewardFactor); // GoldFactor
 
 		/*
 		 * byte[] passwordDecryptedPayload =
@@ -240,6 +244,11 @@ public class LoginReader {
 		return buffer;
 	}
 
+	private static int resolveRewardFactor(PlayerSession session) {
+		boolean hasPowerUser = session != null && session.hasActivePowerUser();
+		return BASE_REWARD_FACTOR * (hasPowerUser ? POWER_USER_REWARD_MULTIPLIER : 1);
+	}
+
 	private static void loadPlayerAvatars(PlayerSession session) {
 		session.getPlayerAvatars().clear();
 		try (ChestDAO chestDAO = DAOFactory.CreateChestDao()) {
@@ -270,3 +279,4 @@ public class LoginReader {
 	}
 
 }
+
