@@ -51,7 +51,8 @@ public final class RoomWriter {
 		
 		// avatares sendo usados
 		List<PlayerAvatar> avatarWearing = newPlayer.getPlayerAvatars().stream()
-				.filter(av -> "1".equals(av.getWearing())).collect(Collectors.toList());
+				.filter(av -> "1".equals(av.getWearing()) && !PlayerSession.isAvatarExpired(av))
+				.collect(Collectors.toList());
 
 		// Escreve os dados do NOVO jogador, que serão enviados para os jogadores
 		// existentes.

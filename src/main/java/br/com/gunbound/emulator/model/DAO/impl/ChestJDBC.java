@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +25,7 @@ public class ChestJDBC implements ChestDAO {
 	@Override
 	public List<ChestDTO> getAllAvatarsByOwnerId(String ownerId) {
 		List<ChestDTO> chestList = new ArrayList<>();
+		deleteExpiredItemsByOwnerId(ownerId);
 		String sql = "SELECT * FROM chest WHERE OwnerId = ?";
 		try (PreparedStatement pst = conn.prepareStatement(sql)) {
 			pst.setString(1, ownerId);
@@ -36,6 +38,20 @@ public class ChestJDBC implements ChestDAO {
 			throw new DbException(e.getMessage());
 		}
 		return chestList;
+	}
+
+	private void deleteExpiredItemsByOwnerId(String ownerId) {
+		String sql = "DELETE FROM chest WHERE OwnerId = ? AND Expire IS NOT NULL AND Expire <= ?";
+		try (PreparedStatement pst = conn.prepareStatement(sql)) {
+			pst.setString(1, ownerId);
+			pst.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+			int deletedRows = pst.executeUpdate();
+			if (deletedRows > 0) {
+				System.out.println("ChestJDBC: removed " + deletedRows + " expired item(s) for " + ownerId);
+			}
+		} catch (SQLException e) {
+			throw new DbException(e.getMessage());
+		}
 	}
 
 	// Buscar um item pelo Idx (PK)

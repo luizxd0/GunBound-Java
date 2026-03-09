@@ -209,7 +209,8 @@ public class JoinRoomReader {
 
 			// avatares sendo usados
 			List<PlayerAvatar> avatarWearing = player.getPlayerAvatars().stream()
-					.filter(av -> "1".equals(av.getWearing())).collect(Collectors.toList());
+					.filter(av -> "1".equals(av.getWearing()) && !PlayerSession.isAvatarExpired(av))
+					.collect(Collectors.toList());
 
 			System.out.println(
 					"{DEBUG} LOOPING NO {writeJoinRoomSuccess}: " + player.getNickName() + " SLOT: [" + slot + "]");

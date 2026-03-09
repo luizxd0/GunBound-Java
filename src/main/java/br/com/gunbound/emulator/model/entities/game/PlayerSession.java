@@ -311,19 +311,22 @@ public class PlayerSession {
 			return false;
 		}
 
-		long now = System.currentTimeMillis();
 		List<PlayerAvatar> avatarsSnapshot = new ArrayList<>(playerAvatars);
 		for (PlayerAvatar avatar : avatarsSnapshot) {
-			if (avatar == null || avatar.getItem() != POWER_USER_ITEM_CODE) {
+			if (avatar == null || avatar.getItem() != POWER_USER_ITEM_CODE || isAvatarExpired(avatar)) {
 				continue;
 			}
-
-			Timestamp expireAt = avatar.getExpire();
-			if (expireAt == null || expireAt.getTime() > now) {
-				return true;
-			}
+			return true;
 		}
 		return false;
+	}
+
+	public static boolean isAvatarExpired(PlayerAvatar avatar) {
+		if (avatar == null) {
+			return true;
+		}
+		Timestamp expireAt = avatar.getExpire();
+		return expireAt != null && expireAt.getTime() <= System.currentTimeMillis();
 	}
 
 	private static Integer parsePlaceOrder(String s) {
