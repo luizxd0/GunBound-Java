@@ -1,0 +1,13 @@
+truncate table gbth.buddylist;
+truncate table gbth.chest;
+truncate table gbth.currentuser;
+truncate table gbth.donation_payments;
+truncate table gbth.game;
+truncate table gbth.guild;
+truncate table gbth.guild_invites;
+truncate table gbth.loginlog;
+truncate table gbth.packet;
+truncate table gbth.password_resets;
+SET FOREIGN_KEY_CHECKS = 0;
+TRUNCATE TABLE gbth.user;
+SET FOREIGN_KEY_CHECKS = 1;
