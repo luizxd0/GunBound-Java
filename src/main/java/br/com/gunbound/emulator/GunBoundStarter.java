@@ -8,11 +8,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import br.com.gunbound.emulator.buddy.BuddyUdpServer;
 import br.com.gunbound.emulator.model.entities.ServerOption;
 
 public class GunBoundStarter {
 	private static final int BROKER_PORT = 8400;
 	private static final int GAME_SERVER_PORT = 8360;
+	private static final int BUDDY_SERVER_PORT = 8352;
 
 	// Bind on all network interfaces.
 	private static final String BIND_HOST = "0.0.0.0";
@@ -20,7 +22,7 @@ public class GunBoundStarter {
 	private static final String ADVERTISED_HOST = "51.191.171.234";
 
 	public static void main(String[] args) {
-		ExecutorService executor = Executors.newFixedThreadPool(2);
+		ExecutorService executor = Executors.newFixedThreadPool(3);
 
 		List<Object> gameServerSessions = Collections.synchronizedList(new ArrayList<>());
 
@@ -70,11 +72,24 @@ public class GunBoundStarter {
 			}
 		});
 
+		GunBoundBuddyServer buddyServer = new GunBoundBuddyServer(BUDDY_SERVER_PORT);
+		executor.submit(() -> {
+			try {
+				buddyServer.start();
+			} catch (Exception e) {
+				System.err.println("Failed to start Buddy Server on port " + BUDDY_SERVER_PORT + "!");
+				e.printStackTrace();
+			}
+		});
+
+		executor.submit(new BuddyUdpServer(BUDDY_SERVER_PORT));
+
 		System.out.println("--- GunBound Starter Started ---");
 		System.out.println("Broker Server listening on " + BIND_HOST + ":" + BROKER_PORT);
 		System.out.println("Game Server listening on " + BIND_HOST + ":" + GAME_SERVER_PORT);
+		System.out.println("Buddy Server listening on " + BIND_HOST + ":" + BUDDY_SERVER_PORT + " (TCP+UDP)");
 		System.out.println("Clients connect to " + ADVERTISED_HOST + " (broker " + BROKER_PORT + ", game "
-				+ GAME_SERVER_PORT + ")");
+				+ GAME_SERVER_PORT + ", buddy " + BUDDY_SERVER_PORT + ")");
 		System.out.println("Press Ctrl+C to stop.");
 
 		try {

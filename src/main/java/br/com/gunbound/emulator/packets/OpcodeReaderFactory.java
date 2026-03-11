@@ -47,6 +47,7 @@ public class OpcodeReaderFactory {
 		readers.put(0x1000, AuthReader::read); //autenticação
 		readers.put(0x1010, LoginReader::read); //Login GBServ
         readers.put(0x1020, UserIdReader::read); // Buscar detalhes de um usuário**
+        readers.put(0x1021, (ctx, payload) -> {}); // Silenciar avisos de 0x1021 (Presence/Info do cliente)
 		readers.put(0x2000, LobbyJoin::read); //entrar em um Lobby
 		readers.put(0x2010, LobbyChatReader::read);// Ler as mensagens originadas no chat
 		readers.put(0x6100, CashUpdateReader::read);// cash update

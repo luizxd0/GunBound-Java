@@ -87,9 +87,8 @@ public class GunBoundGameHandler extends ChannelInboundHandlerAdapter {
 						// incompleto.
 			}
 
-			// 1. Lê a sequência do pacote (2 bytes, little-endian).
-			// Agora o ponteiro de leitura do ByteBuf avança.
-			int sequence = in.readUnsignedShortLE();
+			// 1. Pula a sequência do pacote (2 bytes) - não é mais usada para log.
+			in.skipBytes(2);
 
 			// 2. Lê o comando (2 bytes, little-endian).
 			int command = in.readUnsignedShortLE();
@@ -98,22 +97,9 @@ public class GunBoundGameHandler extends ChannelInboundHandlerAdapter {
 			byte[] payloadData = new byte[in.readableBytes()];
 			in.readBytes(payloadData);
 
-			System.out.println("Pacote recebido no GameHandler: Comando=0x" + Integer.toHexString(command)
-					+ ", Sequência=" + sequence + ", Payload size=" + payloadData.length);
-
-			System.out.println(""); // Linha em branco para formatação.
-			System.out.println("GS: Comando recebido: 0x" + Integer.toHexString(command) + " (Seq: 0x"
-					+ Integer.toHexString(sequence) + ")");
-
-			// Obtém a soma atual dos pacotes enviados para este canal.
-			// int currentTxSum = ctx.channel().attr(GameAttributes.PACKET_TX_SUM).get();
-
 			BiConsumer<ChannelHandlerContext, byte[]> reader = OpcodeReaderFactory.getReader(command);
 			if (reader != null) {
-				System.err.println("GS: Comando Recebido 0x" + Integer.toHexString(command));
 				reader.accept(ctx, payloadData);
-				// cashUpdate(ctx); //manda att de cash
-				// JoinChannel(ctx); //Entra no channel
 			} else {
 				System.err.println("GS: Comando 0x" + Integer.toHexString(command) + " desconhecido no Game Server.");
 			}

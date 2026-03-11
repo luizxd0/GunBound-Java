@@ -83,7 +83,7 @@ public class GunBoundBrokerServer {
                                     new IdleStateHandler(180, 0, 0, TimeUnit.SECONDS),
                                     // 1. LoggingHandler para depuração do tráfego de entrada e saída.
                                     // Se no início do pipeline veremos os bytes brutos da rede.
-                                    new LoggingHandler("BrokerLogger", LogLevel.DEBUG),
+                                    new LoggingHandler("BrokerLogger", LogLevel.INFO),
                                     
                                     // 2. Decoder para separar os pacotes.
                                     new PacketDecoder(),

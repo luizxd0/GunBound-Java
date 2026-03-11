@@ -28,13 +28,20 @@ public final class GunBoundCipher {
 	// --- Chaves e Ciphers Estáticos ---
 	private static final byte[] FIXED_KEY = hexStringToBytes("FFB3B3BEAE97AD83B9610E23A43C2EB0");
 	private static final SecretKeySpec SECRET_KEY_SPEC = new SecretKeySpec(FIXED_KEY, "AES");
+	private static final byte[] BUDDY_FIXED_KEY = hexStringToBytes("2C45926CF3396642B670D006A1FA8182");
+	private static final SecretKeySpec BUDDY_SECRET_KEY_SPEC = new SecretKeySpec(BUDDY_FIXED_KEY, "AES");
+
 	private static final String ALGORITHM_MODE_PADDING = "AES/ECB/NoPadding";
 	private static Cipher staticCipher;
+	private static Cipher buddyStaticCipher;
 
 	static {
 		try {
 			staticCipher = Cipher.getInstance(ALGORITHM_MODE_PADDING);
 			staticCipher.init(Cipher.DECRYPT_MODE, SECRET_KEY_SPEC);
+
+			buddyStaticCipher = Cipher.getInstance(ALGORITHM_MODE_PADDING);
+			buddyStaticCipher.init(Cipher.DECRYPT_MODE, BUDDY_SECRET_KEY_SPEC);
 		} catch (NoSuchAlgorithmException | NoSuchPaddingException | InvalidKeyException e) {
 			throw new ExceptionInInitializerError("Falha ao inicializar o Cipher AES estático: " + e.getMessage());
 		}
@@ -64,11 +71,18 @@ public final class GunBoundCipher {
 
 	// --- Métodos de Criptografia e Descriptografia do Protocolo ---
 
-	public static byte[] gunboundStaticDecrypt(byte[] block) throws IllegalBlockSizeException, BadPaddingException {
+	public static synchronized byte[] gunboundStaticDecrypt(byte[] block) throws IllegalBlockSizeException, BadPaddingException {
 		if (block.length % 16 != 0) {
 			throw new IllegalBlockSizeException("O bloco de entrada deve ter um tamanho múltiplo de 16 bytes.");
 		}
 		return staticCipher.doFinal(block);
+	}
+
+	public static synchronized byte[] gunboundBuddyStaticDecrypt(byte[] block) throws IllegalBlockSizeException, BadPaddingException {
+		if (block.length % 16 != 0) {
+			throw new IllegalBlockSizeException("O bloco de entrada deve ter um tamanho múltiplo de 16 bytes.");
+		}
+		return buddyStaticCipher.doFinal(block);
 	}
 
 	public static byte[] gunboundDynamicDecryptRaw(byte[] blocks, String username, String password, byte[] authToken)
