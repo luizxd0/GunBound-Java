@@ -228,18 +228,42 @@ public class RoomCommandReader {
 		}
 
 		boolean gmOverride = isAdmin(actor);
-		boolean jewelSoloForce = canForceJewelSoloStart(room);
-		if (!gmOverride && !jewelSoloForce) {
+		boolean jewelMode = GameMode.fromId(room.getGameMode()) == GameMode.JEWEL;
+		if (!gmOverride && !jewelMode) {
 			MessageBcmReader.printMsgToPlayer(actor,
-					"ADMIN >> /start is GM-only. Players can use it only in Jewel with no other players in room.");
+					"ADMIN >> /start is GM-only outside Jewel mode.");
+			return;
+		}
+		if (!gmOverride && !isRoomMaster(actor, room)) {
+			MessageBcmReader.printMsgToPlayer(actor,
+					"ADMIN >> Only the room master can use /start.");
+			return;
+		}
+		if (!gmOverride && !areNonMasterPlayersReady(room)) {
+			MessageBcmReader.printMsgToPlayer(actor,
+					"ADMIN >> All other players must be ready to use /start.");
 			return;
 		}
 
 		room.submitAction(() -> room.startGame(null), ctx);
 	}
 
-	private static boolean canForceJewelSoloStart(GameRoom room) {
-		return room != null && GameMode.fromId(room.getGameMode()) == GameMode.JEWEL && room.getPlayerCount() == 1;
+	private static boolean areNonMasterPlayersReady(GameRoom room) {
+		if (room == null) {
+			return false;
+		}
+		PlayerSession master = room.getRoomMaster();
+		for (var entry : room.getPlayersBySlot().entrySet()) {
+			PlayerSession player = entry.getValue();
+			if (player == null || player.equals(master)) {
+				continue;
+			}
+			int slot = entry.getKey();
+			if (!room.isPlayerReady(slot)) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	private static void closeRoom(GameRoom room) {
