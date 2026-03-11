@@ -8,103 +8,98 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import br.com.gunbound.emulator.buddy.BuddyUdpServer;
 import br.com.gunbound.emulator.model.entities.ServerOption;
 
 public class GunBoundStarter {
-    private static final int BROKER_PORT = 8400;
-    private static final int GAME_SERVER_PORT = 8360;
-    private static final String SERVER_HOST = "192.168.0.111"; // Escuta em todas as interfaces de rede
+	private static final int BROKER_PORT = 8400;
+	private static final int GAME_SERVER_PORT = 8360;
+	private static final int BUDDY_SERVER_PORT = 8352;
+
+	// Bind on all network interfaces.
+	private static final String BIND_HOST = "0.0.0.0";
+	// Address advertised to clients in the server list.
+	private static final String ADVERTISED_HOST = "127.0.0.1";
 
 	public static void main(String[] args) {
-		// Usa um ExecutorService para iniciar o broker e o game server em threads
-		// separadas.
-		ExecutorService executor = Executors.newFixedThreadPool(2);
+		ExecutorService executor = Executors.newFixedThreadPool(3);
 
-		// Lista que simula as sessões de jogadores no servidor de jogo.
-		// O broker precisa saber o número de jogadores para reportar a ocupação.
-		// É importante que essa lista seja thread-safe, por isso
-		// Collections.synchronizedList.
 		List<Object> gameServerSessions = Collections.synchronizedList(new ArrayList<>());
 
-		// Lista de servidores que o broker irá mostrar aos clientes.
 		List<ServerOption> serverOptions = new ArrayList<>();
 		try {
-			// Adiciona o servidor de jogo local à lista que o broker irá mostrar.
-			serverOptions.add(new ServerOption("GunBound Legacy", "Avatar OFF", "192.168.0.111",
-					GAME_SERVER_PORT, 0, 500, true));
+			serverOptions.add(new ServerOption("GunBound Classic", "Avatar OFF", ADVERTISED_HOST, GAME_SERVER_PORT, 0,
+					500, true));
 		} catch (Exception e) {
-			System.err.println("Erro ao criar ServerOption para o Game Server: " + e.getMessage());
-			return; // Aborta se não conseguir configurar a opção do servidor.
+			System.err.println("Error creating ServerOption for Game Server: " + e.getMessage());
+			return;
 		}
 
-		// --- 1. Inicializa o Game Server ---
-		// O GameServer é iniciado primeiro para garantir que ele esteja online
-		// Para depois o Broker Server começar a aceitar conexões e direcionar os clientes.
 		GunBoundGameServer gameServer = new GunBoundGameServer(GAME_SERVER_PORT);
-		AtomicBoolean gameServerStarted = new AtomicBoolean(false); // Flag para verificar se o Game Server iniciou com
-																	// sucesso.
+		AtomicBoolean gameServerStarted = new AtomicBoolean(false);
 
 		executor.submit(() -> {
 			try {
 				gameServer.start();
-				gameServerStarted.set(true); // Marca como iniciado com sucesso.
+				gameServerStarted.set(true);
 			} catch (Exception e) {
-				System.err.println("Falha ao iniciar o Game Server na porta " + GAME_SERVER_PORT + "!");
+				System.err.println("Failed to start Game Server on port " + GAME_SERVER_PORT + "!");
 				e.printStackTrace();
 			}
 		});
 
-		// Pequena pausa para dar tempo ao Game Server de inicializar completamente.
-		// Prática comum para garantir a ordem de inicialização em sistemas distribuídos.
 		try {
-			Thread.sleep(2000); // Espera 2 segundos.
+			Thread.sleep(2000);
 		} catch (InterruptedException e) {
-			System.err.println("Inicialização do Game Server interrompida.");
-			Thread.currentThread().interrupt(); // Restaura o status de interrupção.
+			System.err.println("Game Server startup interrupted.");
+			Thread.currentThread().interrupt();
 		}
 
-		// Verifica se o Game Server realmente iniciou.
 		if (!gameServerStarted.get()) {
-			System.err.println("Não foi possível iniciar o Game Server. Abortando inicialização do Broker Server.");
-			executor.shutdownNow(); // Encerra todos os threads no executor.
+			System.err.println("Could not start Game Server. Aborting Broker Server startup.");
+			executor.shutdownNow();
 			return;
 		}
 
-		// --- 2. Inicializa o GunBoundBrokerServer ---
-		// O GunBoundBrokerServer agora está configurado para anunciar e potencialmente
-		// direcionar
-		// clientes para o Game Server que acabou de ser iniciado.
-		// A lista 'gameServerSessions' é passada para o broker para que ele possa
-		// reportar
-		// a ocupação atual do servidor de jogo.
-		GunBoundBrokerServer gunBoundBrokerServer = new GunBoundBrokerServer(SERVER_HOST, BROKER_PORT, serverOptions,
+		GunBoundBrokerServer gunBoundBrokerServer = new GunBoundBrokerServer(BIND_HOST, BROKER_PORT, serverOptions,
 				gameServerSessions);
 		executor.submit(() -> {
 			try {
 				gunBoundBrokerServer.start();
 			} catch (Exception e) {
-				System.err.println("Falha ao iniciar o Broker Server na porta " + BROKER_PORT + "!");
+				System.err.println("Failed to start Broker Server on port " + BROKER_PORT + "!");
 				e.printStackTrace();
 			}
 		});
 
-		System.out.println("--- Gunbound Starter Iniciado ---");
-		System.out.println("Broker Server escutando em " + SERVER_HOST + ":" + BROKER_PORT);
-		System.out.println("Game Server escutando em " + SERVER_HOST + ":" + GAME_SERVER_PORT);
-		System.out.println("Pressione Ctrl+C para encerrar.");
+		GunBoundBuddyServer buddyServer = new GunBoundBuddyServer(BUDDY_SERVER_PORT);
+		executor.submit(() -> {
+			try {
+				buddyServer.start();
+			} catch (Exception e) {
+				System.err.println("Failed to start Buddy Server on port " + BUDDY_SERVER_PORT + "!");
+				e.printStackTrace();
+			}
+		});
 
-		// O thread principal agora aguarda o encerramento dos threads do executor.
-		// Isso mantém a aplicação Java em execução até que os servidores sejam
-		// desligados.
+		executor.submit(new BuddyUdpServer(BUDDY_SERVER_PORT));
+
+		System.out.println("--- GunBound Starter Started ---");
+		System.out.println("Broker Server listening on " + BIND_HOST + ":" + BROKER_PORT);
+		System.out.println("Game Server listening on " + BIND_HOST + ":" + GAME_SERVER_PORT);
+		System.out.println("Buddy Server listening on " + BIND_HOST + ":" + BUDDY_SERVER_PORT + " (TCP+UDP)");
+		System.out.println("Clients connect to " + ADVERTISED_HOST + " (broker " + BROKER_PORT + ", game "
+				+ GAME_SERVER_PORT + ", buddy " + BUDDY_SERVER_PORT + ")");
+		System.out.println("Press Ctrl+C to stop.");
+
 		try {
 			executor.awaitTermination(Long.MAX_VALUE, TimeUnit.HOURS);
 		} catch (InterruptedException e) {
-			System.out.println("Servidores encerrados por interrupção.");
+			System.out.println("Servers stopped by interrupt.");
 			Thread.currentThread().interrupt();
 		} finally {
-			// Garante que o executor será encerrado em qualquer caso de término.
 			executor.shutdownNow();
-			System.out.println("--- Gunbound Starter Encerrado ---");
+			System.out.println("--- GunBound Starter Stopped ---");
 		}
 	}
 }
