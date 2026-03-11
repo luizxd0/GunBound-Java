@@ -62,6 +62,29 @@ public class BuddyAcceptRejectReader {
             }
         }
 
+        // Newer client payloads (e.g. 36 bytes) sometimes encode accept/reject
+        // as a little-endian 32-bit flag at offset 20 (1 = accept, 0 = reject).
+        if (action == -1 && payload.length >= 24) {
+            int flag = (payload[20] & 0xFF)
+                    | ((payload[21] & 0xFF) << 8)
+                    | ((payload[22] & 0xFF) << 16)
+                    | ((payload[23] & 0xFF) << 24);
+            if (flag == 1) {
+                action = 0x02;
+            } else if (flag == 0) {
+                action = 0x03;
+            }
+        }
+
+        // Minimal fallback: single-byte flag at offset 20
+        if (action == -1 && payload.length >= 21) {
+            if (payload[20] == 0x01) {
+                action = 0x02;
+            } else if (payload[20] == 0x00) {
+                action = 0x03;
+            }
+        }
+
         if (action == -1) {
             System.err.println("BS: Ambiguous action (0x02/0x03 not found) in buddy accept/reject from " + session.getUserId());
             return;
@@ -121,9 +144,12 @@ public class BuddyAcceptRejectReader {
             senderSession.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, popup));
 
             if (isAccept) {
-                // If accepted, we just need to send the full buddy list refresh.
-                // sendBuddyList sends 0x1011, 0x3001, and 0x2021 for each buddy, including the new one.
+                // Refresh the buddy list for the sender
                 BuddyFriendListWriter.sendBuddyList(senderSession);
+                
+                // Immediately synchronize statuses so both clients get each other's IPs (P2P handshakes)
+                BuddyFriendListWriter.sendSync(session, senderSession, true); // Send Sender's IP to Receiver
+                BuddyFriendListWriter.sendSync(senderSession, session, true); // Send Receiver's IP to Sender
             }
         }
         

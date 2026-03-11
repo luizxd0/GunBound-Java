@@ -95,6 +95,13 @@ public class BuddyFriendListWriter {
     }
 
     /**
+     * Sends an offline 0x3FFF User Sync packet as a delimiter to oneself.
+     */
+    public static void sendSync(BuddySession session) {
+        sendSync(session, session, false);
+    }
+
+    /**
      * Notifies all online buddies that this user has logged in or out.
      */
     public static void notifyBuddiesOfStateChange(BuddySession session, boolean online) {
