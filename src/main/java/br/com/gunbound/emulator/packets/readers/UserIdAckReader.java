@@ -1,7 +1,5 @@
 package br.com.gunbound.emulator.packets.readers;
 
-import java.nio.charset.StandardCharsets;
-
 import br.com.gunbound.emulator.buddy.BuddySession;
 import br.com.gunbound.emulator.buddy.BuddySessionManager;
 import br.com.gunbound.emulator.handlers.GameAttributes;
@@ -25,21 +23,18 @@ public final class UserIdAckReader {
             return;
         }
 
-        StringBuilder hex = new StringBuilder();
-        for (byte b : payload) {
-            hex.append(String.format("%02X ", b));
+        // 0x1021 is also used for encrypted profile/presence chunks.
+        // Only process ACK payloads when there is a recent 0x1020 user search.
+        Long cachedTs = ctx.channel().attr(GameAttributes.LAST_USER_SEARCH_TS).get();
+        if (cachedTs == null) {
+            return;
         }
-
-        String ascii = sanitizeAscii(payload);
-        System.out.println("RECV> SVC_USER_ID_ACK (0x1021) len=" + payload.length
-                + " hex=" + hex.toString().trim()
-                + " ascii='" + ascii + "'");
 
         // Heuristic token extraction from fixed fields to speed up debugging.
         if (payload.length >= 14) {
-            String token12 = fixedString(payload, 2, 12);
+            String token12 = fixedIdentifier(payload, 2, 12);
             if (token12.isEmpty() && payload.length >= 15) {
-                token12 = fixedString(payload, 3, 12);
+                token12 = fixedIdentifier(payload, 3, 12);
             }
             PlayerSession ps = token12.isEmpty()
                     ? null
@@ -50,9 +45,9 @@ public final class UserIdAckReader {
         }
 
         if (payload.length >= 18) {
-            String token16 = fixedString(payload, 2, 16);
+            String token16 = fixedIdentifier(payload, 2, 16);
             if (token16.isEmpty() && payload.length >= 19) {
-                token16 = fixedString(payload, 3, 16);
+                token16 = fixedIdentifier(payload, 3, 16);
             }
             if (!token16.isEmpty()) {
                 System.out.println("SVC_USER_ID_ACK token16='" + token16 + "'");
@@ -109,31 +104,34 @@ public final class UserIdAckReader {
         ctx.channel().attr(GameAttributes.LAST_USER_SEARCH_TS).set(null);
     }
 
-    private static String fixedString(byte[] payload, int offset, int maxLen) {
+    private static String fixedIdentifier(byte[] payload, int offset, int maxLen) {
         int end = Math.min(payload.length, offset + maxLen);
-        int stop = end;
-        for (int i = offset; i < end; i++) {
-            if (payload[i] == 0x00) {
-                stop = i;
-                break;
-            }
-        }
-        if (stop <= offset) {
+        if (offset < 0 || offset >= end) {
             return "";
         }
-        return new String(payload, offset, stop - offset, StandardCharsets.ISO_8859_1).trim();
-    }
 
-    private static String sanitizeAscii(byte[] payload) {
-        StringBuilder out = new StringBuilder(payload.length);
-        for (byte b : payload) {
-            int ub = b & 0xFF;
-            if (ub >= 0x20 && ub <= 0x7E) {
-                out.append((char) ub);
-            } else {
-                out.append('.');
+        StringBuilder value = new StringBuilder(maxLen);
+        for (int i = offset; i < end; i++) {
+            int ub = payload[i] & 0xFF;
+            if (ub == 0x00) {
+                break;
             }
+
+            if ((ub >= '0' && ub <= '9')
+                    || (ub >= 'A' && ub <= 'Z')
+                    || (ub >= 'a' && ub <= 'z')
+                    || ub == '_'
+                    || ub == '-') {
+                value.append((char) ub);
+                continue;
+            }
+
+            // Non-identifier byte in token window means this payload is not a user-id ACK.
+            return "";
         }
-        return out.toString();
+        if (value.length() == 0) {
+            return "";
+        }
+        return value.toString();
     }
 }
