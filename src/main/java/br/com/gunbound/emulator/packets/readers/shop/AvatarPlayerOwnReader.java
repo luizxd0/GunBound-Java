@@ -6,11 +6,14 @@ import br.com.gunbound.emulator.model.DAO.DAOFactory;
 import br.com.gunbound.emulator.model.entities.game.PlayerAvatar;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.utils.PacketUtils;
-import br.com.gunbound.emulator.utils.TimestampRemaining;
 import br.com.gunbound.emulator.utils.Utils;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
+
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.LocalDateTime;
 
 public class AvatarPlayerOwnReader {
 
@@ -48,7 +51,7 @@ public class AvatarPlayerOwnReader {
 			buffer.writeBytes(new byte[] { 0x00});
 			buffer.writeByte(avatar.getVolume());
 		        // Calcula o timestamp restante em segundos
-				buffer.writeIntLE(TimestampRemaining.calcTimestampRemaining(avatar.getExpire()));
+				buffer.writeIntLE(calcTimestampRemaining(avatar.getExpire()));
 				buffer.writeBytes(new byte[] { 0x00});
 			} else {
 				buffer.writeBytes(new byte[] { 0x00, 0x00 });
@@ -66,6 +69,14 @@ public class AvatarPlayerOwnReader {
 		// Thread.sleep(150);
 		player.getPlayerCtxChannel().writeAndFlush(finalPacket);
 
+	}
+
+	private static int calcTimestampRemaining(Timestamp expireAt) {
+		if (expireAt == null) {
+			return 0;
+		}
+		long seconds = Duration.between(LocalDateTime.now(), expireAt.toLocalDateTime()).getSeconds();
+		return (int) Math.max(0, seconds);
 	}
 
 	public static void test(ChannelHandlerContext ctx, byte[] payload) {
