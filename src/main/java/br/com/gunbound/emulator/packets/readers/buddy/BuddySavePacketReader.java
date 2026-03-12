@@ -10,7 +10,9 @@ import br.com.gunbound.emulator.utils.crypto.GunBoundCipher;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
@@ -31,48 +33,59 @@ public final class BuddySavePacketReader {
             return;
         }
 
-        byte[] normalized = normalizePayload(session, payload);
-        ParsedLegacyChat parsed = parseLegacyChat(normalized);
-        if (parsed == null) {
-            System.err.println("BS: Unparsed legacy 0x2000 payload (" + payload.length + " bytes) from "
-                    + session.getUserId());
-            return;
-        }
-
         BuddyDAO buddyDAO = new BuddyJDBC();
-        Map<String, Object> targetData = buddyDAO.getUserGameData(parsed.targetIdOrNick);
-        if (targetData == null) {
-            targetData = buddyDAO.getUserByNickname(parsed.targetIdOrNick);
-        }
-        if (targetData == null) {
-            System.err.println("BS: Legacy 0x2000 target not found: " + parsed.targetIdOrNick);
-            return;
-        }
-
-        String targetUserId = (String) targetData.get("UserId");
         String senderNick = session.getNickName() != null ? session.getNickName() : session.getUserId();
-        byte[] relayBody = buildRelayChatBody(session.getUserId(), senderNick, parsed.message);
 
-        BuddySession targetSession = BuddySessionManager.getInstance().getSession(targetUserId);
-        boolean targetOnline = targetSession != null
-                && targetSession.isActive()
-                && targetSession.isAuthenticated()
-                && targetSession.isLoginHandshakeFinalized();
+        for (byte[] candidate : payloadCandidates(session, payload)) {
+            ParsedLegacyChat parsedChat = parseLegacyChat(candidate);
+            if (parsedChat != null) {
+                Map<String, Object> targetData = buddyDAO.getUserGameData(parsedChat.targetIdOrNick);
+                if (targetData == null) {
+                    targetData = buddyDAO.getUserByNickname(parsedChat.targetIdOrNick);
+                }
+                if (targetData == null) {
+                    continue;
+                }
 
-        if (targetOnline) {
-            targetSession.getChannel()
-                    .writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, relayBody))
-                    .addListener(future -> {
-                        if (!future.isSuccess()) {
-                            saveOffline(buddyDAO, targetUserId, session.getUserId(), relayBody);
-                        }
-                    });
-            System.out.println("BS: Relayed legacy 0x2000 chat from " + session.getUserId() + " to " + targetUserId);
-        } else {
-            saveOffline(buddyDAO, targetUserId, session.getUserId(), relayBody);
-            System.out.println("BS: Saved legacy 0x2000 offline chat from " + session.getUserId() + " to "
-                    + targetUserId);
+                String targetUserId = (String) targetData.get("UserId");
+                byte[] relayBody = buildRelayChatBody(session.getUserId(), senderNick, parsedChat.message);
+                relayOrSave(session, buddyDAO, targetUserId, relayBody, "chat");
+                return;
+            }
+
+            String inviteTargetToken = parseLegacyInviteTarget(candidate);
+            if (inviteTargetToken != null) {
+                Map<String, Object> targetData = buddyDAO.getUserGameData(inviteTargetToken);
+                if (targetData == null) {
+                    targetData = buddyDAO.getUserByNickname(inviteTargetToken);
+                }
+                if (targetData == null) {
+                    continue;
+                }
+
+                String targetUserId = (String) targetData.get("UserId");
+                if (targetUserId == null || targetUserId.equalsIgnoreCase(session.getUserId())) {
+                    return;
+                }
+
+                if (buddyDAO.isBuddy(session.getUserId(), targetUserId)) {
+                    return;
+                }
+                if (BuddyAddReader.hasPending(session.getUserId(), targetUserId)
+                        || BuddyAddReader.hasPending(targetUserId, session.getUserId())) {
+                    System.out.println("BS: Suppressed legacy invite echo while pending: "
+                            + session.getUserId() + " -> " + targetUserId);
+                    return;
+                }
+
+                byte[] relayBody = buildRelayInviteBody(session.getUserId(), senderNick);
+                relayOrSave(session, buddyDAO, targetUserId, relayBody, "invite");
+                return;
+            }
         }
+
+        System.err.println("BS: Unparsed legacy 0x2000 payload (" + payload.length + " bytes) from "
+                + session.getUserId());
     }
 
     private static void saveOffline(BuddyDAO buddyDAO, String targetUserId, String senderUserId, byte[] relayBody) {
@@ -88,16 +101,46 @@ public final class BuddySavePacketReader {
         }
     }
 
-    private static byte[] normalizePayload(BuddySession session, byte[] payload) {
-        ParsedLegacyChat plain = parseLegacyChat(payload);
-        if (plain != null) {
-            return payload;
+    private static void relayOrSave(BuddySession session,
+                                    BuddyDAO buddyDAO,
+                                    String targetUserId,
+                                    byte[] relayBody,
+                                    String kind) {
+        BuddySession targetSession = BuddySessionManager.getInstance().getSession(targetUserId);
+        boolean targetOnline = targetSession != null
+                && targetSession.isActive()
+                && targetSession.isAuthenticated()
+                && targetSession.isLoginHandshakeFinalized();
+
+        if (targetOnline) {
+            targetSession.getChannel()
+                    .writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, relayBody))
+                    .addListener(future -> {
+                        if (!future.isSuccess()) {
+                            saveOffline(buddyDAO, targetUserId, session.getUserId(), relayBody);
+                        }
+                    });
+            System.out.println("BS: Relayed legacy 0x2000 " + kind + " from " + session.getUserId() + " to "
+                    + targetUserId);
+        } else {
+            saveOffline(buddyDAO, targetUserId, session.getUserId(), relayBody);
+            System.out.println("BS: Saved legacy 0x2000 offline " + kind + " from " + session.getUserId() + " to "
+                    + targetUserId);
+        }
+    }
+
+    private static List<byte[]> payloadCandidates(BuddySession session, byte[] payload) {
+        List<byte[]> out = new ArrayList<>();
+        out.add(payload);
+
+        if (parseLegacyChat(payload) != null || parseLegacyInviteTarget(payload) != null) {
+            return out;
         }
 
         byte[] token = session.getAuthToken();
         String password = session.getPassword();
         if (token == null || token.length != 4 || password == null || password.isEmpty() || payload.length % 16 != 0) {
-            return payload;
+            return out;
         }
 
         try {
@@ -110,17 +153,18 @@ public final class BuddySavePacketReader {
 
             // Legacy framing uses 16-byte blocks where the first 4 bytes are control/check data.
             byte[] stripped = stripLegacyBlockPrefix(decrypted);
-            if (parseLegacyChat(stripped) != null) {
-                return stripped;
+
+            if (parseLegacyChat(stripped) != null || parseLegacyInviteTarget(stripped) != null) {
+                out.add(stripped);
             }
-            if (parseLegacyChat(decrypted) != null) {
-                return decrypted;
+            if (parseLegacyChat(decrypted) != null || parseLegacyInviteTarget(decrypted) != null) {
+                out.add(decrypted);
             }
         } catch (Exception ignored) {
             // Keep fallback behavior when payload cannot be decoded.
         }
 
-        return payload;
+        return out;
     }
 
     private static byte[] stripLegacyBlockPrefix(byte[] decrypted) {
@@ -156,6 +200,17 @@ public final class BuddySavePacketReader {
         return relayBody;
     }
 
+    private static byte[] buildRelayInviteBody(String senderUserId, String senderNick) {
+        byte[] relayBody = new byte[16 + 12 + BuddyConstants.BUDDY_INVITE_TAG.length];
+        int pos = 0;
+        System.arraycopy(BuddyPacketUtils.encFixed(senderUserId, 16), 0, relayBody, pos, 16);
+        pos += 16;
+        System.arraycopy(BuddyPacketUtils.encFixed(senderNick, 12), 0, relayBody, pos, 12);
+        pos += 12;
+        System.arraycopy(BuddyConstants.BUDDY_INVITE_TAG, 0, relayBody, pos, BuddyConstants.BUDDY_INVITE_TAG.length);
+        return relayBody;
+    }
+
     private static ParsedLegacyChat parseLegacyChat(byte[] payload) {
         if (payload == null || payload.length == 0) {
             return null;
@@ -166,7 +221,7 @@ public final class BuddySavePacketReader {
             String fixedTarget = BuddyPacketUtils.readFixedString(payload, 0, 16);
             if (isValidUserToken(fixedTarget)) {
                 byte[] message = extractMessage(payload, 16);
-                if (message != null && message.length > 0) {
+                if (isLikelyChatMessage(message)) {
                     return new ParsedLegacyChat(fixedTarget, message);
                 }
             }
@@ -179,16 +234,7 @@ public final class BuddySavePacketReader {
             if (isValidUserToken(target)) {
                 byte[] remainder = Arrays.copyOfRange(payload, nullIndex + 1, payload.length);
                 byte[] message = extractMessage(remainder, 0);
-                if (message == null || message.length == 0) {
-                    int start = Math.min(9, remainder.length);
-                    while (start < remainder.length && remainder[start] == 0x00) {
-                        start++;
-                    }
-                    if (start < remainder.length) {
-                        message = Arrays.copyOfRange(remainder, start, Math.min(remainder.length, start + 40));
-                    }
-                }
-                if (message != null && message.length > 0) {
+                if (isLikelyChatMessage(message)) {
                     return new ParsedLegacyChat(target, trimTrailingZeros(message));
                 }
             }
@@ -219,6 +265,80 @@ public final class BuddySavePacketReader {
             }
         }
         return null;
+    }
+
+    private static String parseLegacyInviteTarget(byte[] payload) {
+        if (payload == null || payload.length == 0) {
+            return null;
+        }
+
+        // If this clearly looks like chat content, do not reinterpret as invite.
+        if (isLikelyChatMessage(extractMessage(payload, 0))) {
+            return null;
+        }
+
+        if (payload.length >= 16) {
+            String fixedTarget = BuddyPacketUtils.readFixedString(payload, 0, 16);
+            if (isValidUserToken(fixedTarget)) {
+                return fixedTarget;
+            }
+        }
+
+        // Legacy variants can prepend 4 bytes before the 16-byte target token.
+        if (payload.length >= 20) {
+            String prefixedTarget = BuddyPacketUtils.readFixedString(payload, 4, 16);
+            if (isValidUserToken(prefixedTarget)) {
+                return prefixedTarget;
+            }
+        }
+
+        int nullIndex = indexOf(payload, (byte) 0x00, 0);
+        if (nullIndex > 0) {
+            String token = new String(payload, 0, nullIndex, StandardCharsets.ISO_8859_1).trim();
+            if (isValidUserToken(token)) {
+                return token;
+            }
+        }
+
+        if (payload.length >= 16) {
+            String tailTarget = BuddyPacketUtils.readFixedString(payload, payload.length - 16, 16);
+            if (isValidUserToken(tailTarget)) {
+                return tailTarget;
+            }
+        }
+
+        return null;
+    }
+
+    private static boolean isLikelyChatMessage(byte[] rawMessage) {
+        byte[] message = trimTrailingZeros(rawMessage);
+        if (message == null || message.length == 0 || message.length > 40) {
+            return false;
+        }
+
+        boolean hasVisibleChar = false;
+        for (byte b : message) {
+            int ub = b & 0xFF;
+            if (ub == 0x00) {
+                // Embedded null means this is probably structured/binary, not user chat text.
+                return false;
+            }
+            if (!isLikelyPrintable(ub)) {
+                return false;
+            }
+            if (ub > 0x20) {
+                hasVisibleChar = true;
+            }
+        }
+        return hasVisibleChar;
+    }
+
+    private static boolean isLikelyPrintable(int ub) {
+        return ub == 0x09
+                || ub == 0x0A
+                || ub == 0x0D
+                || (ub >= 0x20 && ub <= 0x7E)
+                || (ub >= 0xA0 && ub <= 0xFF);
     }
 
     private static byte[] trimTrailingZeros(byte[] data) {
@@ -258,4 +378,3 @@ public final class BuddySavePacketReader {
         }
     }
 }
-

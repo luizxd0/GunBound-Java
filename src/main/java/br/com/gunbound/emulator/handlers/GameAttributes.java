@@ -16,6 +16,10 @@ public class GameAttributes {
 	public static final AttributeKey<byte[]> SESSION_UNIQUE = AttributeKey.valueOf("sessionUnique");
 	//guarda a versao do Cliente que o player ta usando
 	public static final AttributeKey<Integer> CLIENT_VERSION = AttributeKey.valueOf("clientVersion");
+	// cache da ultima busca SVC_USER_ID para bridge de add buddy
+	public static final AttributeKey<String> LAST_USER_SEARCH_USER_ID = AttributeKey.valueOf("lastUserSearchUserId");
+	public static final AttributeKey<String> LAST_USER_SEARCH_NICK = AttributeKey.valueOf("lastUserSearchNick");
+	public static final AttributeKey<Long> LAST_USER_SEARCH_TS = AttributeKey.valueOf("lastUserSearchTs");
 	
 	
 	

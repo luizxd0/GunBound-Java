@@ -20,6 +20,8 @@ import java.util.Map;
 import java.util.Arrays;
 import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Handles login requests for the Buddy Server.
@@ -154,6 +156,8 @@ public class BuddyLoginReader {
         // We do NOT broadcast presence yet. We must wait for the client to echo the nonce over UDP.
         final BuddySession loggedSession = session;
         BuddyFriendListWriter.sendBuddyList(loggedSession);
+        // Some clients only render the list after a first sync delimiter.
+        BuddyFriendListWriter.sendSync(loggedSession);
 
         // Some clients delay UDP nonce for a long time; finalize over TCP as a fallback.
         ctx.channel().eventLoop().schedule(
@@ -165,13 +169,38 @@ public class BuddyLoginReader {
 
     public static void processOfflinePackets(BuddySession session, BuddyDAO buddyDAO) {
         List<Map<String, Object>> offlinePackets = buddyDAO.getOfflinePackets(session.getUserId());
+        Set<String> deliveredInviteSenders = new HashSet<>();
+
         for (Map<String, Object> pkt : offlinePackets) {
             long serialNo = (Long) pkt.get("SerialNo");
             byte[] body = (byte[]) pkt.get("Body");
+            String senderFromRow = (String) pkt.get("Sender");
 
             if (body == null || body.length == 0) {
                 buddyDAO.deleteOfflinePacket(serialNo);
                 continue;
+            }
+
+            // Offline-only hardening:
+            // 1) Drop stale invite packets if users are already buddies.
+            // 2) Deliver at most one invite per sender during a login drain.
+            if (isBuddyInvitePayload(body)) {
+                String senderFromBody = extractSenderFromRelayBody(body);
+                String senderUserId = (senderFromBody != null && !senderFromBody.isEmpty()) ? senderFromBody : senderFromRow;
+
+                if (senderUserId != null && !senderUserId.isEmpty()) {
+                    if (buddyDAO.isBuddy(session.getUserId(), senderUserId)) {
+                        buddyDAO.deleteOfflinePacket(serialNo);
+                        continue;
+                    }
+
+                    String inviteKey = senderUserId.toLowerCase();
+                    if (!deliveredInviteSenders.add(inviteKey)) {
+                        buddyDAO.deleteOfflinePacket(serialNo);
+                        continue;
+                    }
+                    BuddyAddReader.registerPending(senderUserId, session.getUserId());
+                }
             }
 
             if (!session.isActive()) {
@@ -190,5 +219,29 @@ public class BuddyLoginReader {
                         }
                     });
         }
+    }
+
+    private static boolean isBuddyInvitePayload(byte[] relayBody) {
+        if (relayBody == null || relayBody.length < 13) {
+            return false;
+        }
+        int tagOffset = relayBody.length - BuddyConstants.BUDDY_INVITE_TAG.length;
+        if (tagOffset < 0) {
+            return false;
+        }
+        for (int i = 0; i < BuddyConstants.BUDDY_INVITE_TAG.length; i++) {
+            if (relayBody[tagOffset + i] != BuddyConstants.BUDDY_INVITE_TAG[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String extractSenderFromRelayBody(byte[] relayBody) {
+        if (relayBody == null || relayBody.length < 16) {
+            return null;
+        }
+        String sender = BuddyPacketUtils.readFixedString(relayBody, 0, 16);
+        return (sender == null || sender.isEmpty()) ? null : sender;
     }
 }
