@@ -98,6 +98,10 @@ public class BuddyServerHandler extends ChannelInboundHandlerAdapter {
                     BuddyTunnelReader.handle(ctx, payload);
                     break;
 
+                case BuddyConstants.SVC_SAVE_PACKET:
+                    BuddySavePacketReader.handle(ctx, payload);
+                    break;
+
                 case BuddyConstants.SVC_DELETE_PACKET:
                     BuddyDeletePacketReader.handle(ctx, payload);
                     break;

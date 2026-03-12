@@ -38,6 +38,9 @@ public final class BuddyConstants {
     /** Tunnel packet (chat, status relay, buddy request via tunnel). */
     public static final int SVC_TUNNEL_PACKET = 0x2020;
 
+    /** Legacy save/chat packet used by some clients. */
+    public static final int SVC_SAVE_PACKET = 0x2000;
+
     /** Delete offline packets. */
     public static final int SVC_DELETE_PACKET = 0x2011;
 

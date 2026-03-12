@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Arrays;
 import java.security.SecureRandom;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Handles login requests for the Buddy Server.
@@ -125,6 +126,9 @@ public class BuddyLoginReader {
         session.setTotalRank(totalRank);
         session.setTotalGrade(totalGrade);
         session.setAuthenticated(true);
+        session.setPassword((String) gameData.get("Password"));
+        session.setAuthToken(ctx.channel().attr(AUTH_TOKEN_KEY).get());
+        session.resetLoginHandshakeFinalized();
 
         byte[] syncToken = new byte[6];
         new SecureRandom().nextBytes(syncToken);
@@ -148,7 +152,15 @@ public class BuddyLoginReader {
 
         // Send Buddy List (contains UDP nonce). 
         // We do NOT broadcast presence yet. We must wait for the client to echo the nonce over UDP.
-        BuddyFriendListWriter.sendBuddyList(session);
+        final BuddySession loggedSession = session;
+        BuddyFriendListWriter.sendBuddyList(loggedSession);
+
+        // Some clients delay UDP nonce for a long time; finalize over TCP as a fallback.
+        ctx.channel().eventLoop().schedule(
+                () -> BuddyFriendListWriter.finalizeLoginHandshake(loggedSession),
+                250,
+                TimeUnit.MILLISECONDS
+        );
     }
 
     public static void processOfflinePackets(BuddySession session, BuddyDAO buddyDAO) {
@@ -156,13 +168,27 @@ public class BuddyLoginReader {
         for (Map<String, Object> pkt : offlinePackets) {
             long serialNo = (Long) pkt.get("SerialNo");
             byte[] body = (byte[]) pkt.get("Body");
-            
-            if (body != null) {
-                // Relay as 0x2021
-                ByteBuf payloadBuf = Unpooled.copiedBuffer(body);
-                session.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, payloadBuf));
+
+            if (body == null || body.length == 0) {
+                buddyDAO.deleteOfflinePacket(serialNo);
+                continue;
             }
-            buddyDAO.deleteOfflinePacket(serialNo);
+
+            if (!session.isActive()) {
+                return;
+            }
+
+            // Relay as 0x2021 and delete only after successful flush.
+            session.getChannel()
+                    .writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, body))
+                    .addListener(future -> {
+                        if (future.isSuccess()) {
+                            buddyDAO.deleteOfflinePacket(serialNo);
+                        } else {
+                            System.err.println("BS: Failed to deliver offline packet serial " + serialNo
+                                    + " to " + session.getUserId());
+                        }
+                    });
         }
     }
 }

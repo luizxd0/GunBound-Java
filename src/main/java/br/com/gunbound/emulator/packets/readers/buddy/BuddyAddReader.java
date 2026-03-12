@@ -31,6 +31,7 @@ public class BuddyAddReader {
 
         // Payload contains friend nickname (16 bytes, null-padded)
         String friendNick = BuddyPacketUtils.readFixedString(payload, 0, 16);
+        System.out.println("BS: SVC_ADD_BUDDY from " + session.getUserId() + " target='" + friendNick + "'");
 
         if (friendNick.isEmpty()) {
             sendAddResponse(ctx, ADD_RESULT_FAIL); // Fail
@@ -75,24 +76,56 @@ public class BuddyAddReader {
 
         // Send 0x2021 Relay Buddy Invitation to Target
         // Relay payload (41b): UID(16) + Nick(12) + Tag(13)
-        BuddySession targetSession = BuddySessionManager.getInstance().getSession(targetUserId);
-        
         ByteBuf relay = Unpooled.buffer(41);
         String senderNick = session.getNickName() != null ? session.getNickName() : session.getUserId();
-        
+
         relay.writeBytes(BuddyPacketUtils.encFixed(session.getUserId(), 16));
         relay.writeBytes(BuddyPacketUtils.encFixed(senderNick, 12));
         relay.writeBytes(BuddyConstants.BUDDY_INVITE_TAG);
 
-        if (targetSession != null) {
-            targetSession.getChannel().writeAndFlush(
-                    BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, relay)
-            );
+        byte[] relayBody = new byte[relay.readableBytes()];
+        relay.getBytes(0, relayBody);
+
+        BuddySession targetSession = BuddySessionManager.getInstance().getSession(targetUserId);
+        boolean targetOnline = targetSession != null
+                && targetSession.isActive()
+                && targetSession.isAuthenticated()
+                && targetSession.isLoginHandshakeFinalized();
+
+        if (targetOnline) {
+            ByteBuf packet = BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, relay);
+            relay.release();
+            targetSession.getChannel().writeAndFlush(packet
+            ).addListener(future -> {
+                if (!future.isSuccess()) {
+                    boolean saved = buddyDAO.saveOfflinePacket(
+                            targetUserId,
+                            session.getUserId(),
+                            BuddyConstants.SVC_RELAY_BUDDY_REQ,
+                            relayBody
+                    );
+                    if (saved) {
+                        System.out.println("BS: Saved offline buddy invite after relay failure: "
+                                + session.getUserId() + " -> " + targetUserId);
+                    } else {
+                        System.err.println("BS: Failed to save offline buddy invite after relay failure: "
+                                + session.getUserId() + " -> " + targetUserId);
+                    }
+                }
+            });
         } else {
-            // Store as offline packet
-            byte[] offlineBody = new byte[relay.readableBytes()];
-            relay.readBytes(offlineBody);
-            buddyDAO.saveOfflinePacket(targetUserId, session.getUserId(), BuddyConstants.SVC_RELAY_BUDDY_REQ, offlineBody);
+            boolean saved = buddyDAO.saveOfflinePacket(
+                    targetUserId,
+                    session.getUserId(),
+                    BuddyConstants.SVC_RELAY_BUDDY_REQ,
+                    relayBody
+            );
+            if (saved) {
+                System.out.println("BS: Saved offline buddy invite: " + session.getUserId() + " -> " + targetUserId);
+            } else {
+                System.err.println("BS: Failed to save offline buddy invite: " + session.getUserId() + " -> " + targetUserId);
+            }
+            relay.release();
         }
 
         markPending(session.getUserId(), targetUserId);
