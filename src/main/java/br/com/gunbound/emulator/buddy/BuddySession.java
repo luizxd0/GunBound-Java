@@ -2,6 +2,8 @@ package br.com.gunbound.emulator.buddy;
 
 import io.netty.channel.Channel;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * Represents an authenticated buddy server session.
  * Tracks the user's identity, game data, and Netty channel.
@@ -21,6 +23,9 @@ public class BuddySession {
     private int clientExternalPort;
     private byte[] clientInternalIp;
     private int clientInternalPort;
+    private String password;
+    private byte[] authToken;
+    private final AtomicBoolean loginHandshakeFinalized = new AtomicBoolean(false);
 
     public BuddySession(Channel channel) {
         this.channel = channel;
@@ -129,6 +134,34 @@ public class BuddySession {
 
     public void setClientInternalPort(int clientInternalPort) {
         this.clientInternalPort = clientInternalPort;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
+    public byte[] getAuthToken() {
+        return authToken != null ? authToken.clone() : null;
+    }
+
+    public void setAuthToken(byte[] authToken) {
+        this.authToken = authToken != null ? authToken.clone() : null;
+    }
+
+    public boolean tryFinalizeLoginHandshake() {
+        return loginHandshakeFinalized.compareAndSet(false, true);
+    }
+
+    public void resetLoginHandshakeFinalized() {
+        loginHandshakeFinalized.set(false);
+    }
+
+    public boolean isLoginHandshakeFinalized() {
+        return loginHandshakeFinalized.get();
     }
 
     /**

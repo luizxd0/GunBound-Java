@@ -213,9 +213,23 @@ public class BuddyJDBC implements BuddyDAO {
 
     @Override
     public boolean saveOfflinePacket(String receiverId, String senderId, int code, byte[] body) {
+        String dedupeSql = "SELECT SerialNo FROM Packet "
+                + "WHERE Receiver = ? AND Sender = ? AND Code = ? AND Body = ? "
+                + "ORDER BY SerialNo DESC LIMIT 1";
         String sql = "INSERT INTO Packet (Receiver, Sender, Code, Body, Time) VALUES (?, ?, ?, ?, NOW())";
         try (Connection conn = DatabaseManager.getConnection();
+                PreparedStatement dedupe = conn.prepareStatement(dedupeSql);
                 PreparedStatement ps = conn.prepareStatement(sql)) {
+            dedupe.setString(1, receiverId);
+            dedupe.setString(2, senderId);
+            dedupe.setInt(3, code);
+            dedupe.setBytes(4, body);
+            try (ResultSet rs = dedupe.executeQuery()) {
+                if (rs.next()) {
+                    return true;
+                }
+            }
+
             ps.setString(1, receiverId);
             ps.setString(2, senderId);
             ps.setInt(3, code);

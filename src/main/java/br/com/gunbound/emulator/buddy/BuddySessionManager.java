@@ -60,6 +60,9 @@ public final class BuddySessionManager {
             String key = session.getUserId().toLowerCase();
             // Only remove from byUserId if it still points to this session
             byUserId.remove(key, session);
+            if (session.getUdpNonce() != 0) {
+                byNonce.remove(session.getUdpNonce(), session);
+            }
             System.out.println("BuddySessionManager: Removed session for " + session.getUserId()
                     + ". Online: " + byUserId.size());
         }
@@ -84,6 +87,13 @@ public final class BuddySessionManager {
 
     public void registerNonce(int nonce, BuddySession session) {
         byNonce.put(nonce, session);
+    }
+
+    public void unregisterNonce(int nonce, BuddySession session) {
+        if (nonce == 0 || session == null) {
+            return;
+        }
+        byNonce.remove(nonce, session);
     }
 
     public BuddySession getSessionByNonce(int nonce) {

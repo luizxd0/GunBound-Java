@@ -128,6 +128,13 @@ public class BuddyFriendListWriter {
     }
 
     public static void finalizeLoginHandshake(BuddySession session) {
+        if (session == null || !session.isActive() || !session.isAuthenticated()) {
+            return;
+        }
+        // UDP and TCP paths can both trigger finalization; process only once per login.
+        if (!session.tryFinalizeLoginHandshake()) {
+            return;
+        }
         // 1. Notify Buddies of State Change (and exchange statuses)
         notifyBuddiesOfStateChange(session, true);
         // 2. Process Offline Packets
