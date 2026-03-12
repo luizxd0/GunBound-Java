@@ -127,6 +127,53 @@ public class BuddyFriendListWriter {
         }
     }
 
+    /**
+     * Explicitly sends offline sync markers for buddies that are currently unreachable.
+     * Some clients only switch to immediate server-relay/offline behavior after they receive
+     * an explicit offline state packet for that buddy.
+     */
+    public static void sendOfflineBuddyStates(BuddySession session) {
+        if (session == null || !session.isActive() || session.getUserId() == null) {
+            return;
+        }
+
+        BuddyDAO buddyDAO = new BuddyJDBC();
+        List<Map<String, Object>> buddies = buddyDAO.getBuddyList(session.getUserId());
+
+        for (Map<String, Object> b : buddies) {
+            String friendId = (String) b.get("Buddy");
+            if (friendId == null || friendId.isBlank()) {
+                continue;
+            }
+
+            BuddySession friendSession = BuddySessionManager.getInstance().getSession(friendId);
+            boolean reachable = friendSession != null
+                    && friendSession.isActive()
+                    && friendSession.isAuthenticated()
+                    && friendSession.isLoginHandshakeFinalized();
+
+            if (!reachable) {
+                sendOfflineSync(session, friendId);
+            }
+        }
+    }
+
+    /**
+     * Sends a 0x3FFF offline marker for one subject userId to a target session.
+     */
+    public static void sendOfflineSync(BuddySession target, String subjectUserId) {
+        if (target == null || !target.isActive() || subjectUserId == null || subjectUserId.isBlank()) {
+            return;
+        }
+
+        ByteBuf sync = Unpooled.buffer(2 + 16 + 1);
+        sync.writeShortLE(0x0100);
+        sync.writeBytes(BuddyPacketUtils.encFixed(subjectUserId, 16));
+        sync.writeByte(0x00);
+
+        target.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_USER_SYNC, sync));
+    }
+
     public static void finalizeLoginHandshake(BuddySession session) {
         if (session == null || !session.isActive() || !session.isAuthenticated()) {
             return;
@@ -137,7 +184,9 @@ public class BuddyFriendListWriter {
         }
         // 1. Notify Buddies of State Change (and exchange statuses)
         notifyBuddiesOfStateChange(session, true);
-        // 2. Process Offline Packets
+        // 2. Send explicit offline states for buddies that are not reachable yet.
+        sendOfflineBuddyStates(session);
+        // 3. Process Offline Packets
         br.com.gunbound.emulator.packets.readers.buddy.BuddyLoginReader.processOfflinePackets(session, new BuddyJDBC());
     }
 }

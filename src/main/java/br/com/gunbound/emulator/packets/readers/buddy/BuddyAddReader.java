@@ -31,10 +31,22 @@ public class BuddyAddReader {
 
         // Payload contains friend nickname (16 bytes, null-padded)
         String friendNick = BuddyPacketUtils.readFixedString(payload, 0, 16);
-        System.out.println("BS: SVC_ADD_BUDDY from " + session.getUserId() + " target='" + friendNick + "'");
+        handleFromSession(session, friendNick, "tcp3010");
+    }
 
+    public static void handleFromSession(BuddySession session, String friendNick) {
+        handleFromSession(session, friendNick, "bridge1021");
+    }
+
+    private static void handleFromSession(BuddySession session, String friendNick, String source) {
+        if (session == null || !session.isAuthenticated()) return;
+        if (friendNick == null) {
+            friendNick = "";
+        }
+        System.out.println("BS: SVC_ADD_BUDDY (" + source + ") from " + session.getUserId()
+                + " target='" + friendNick + "'");
         if (friendNick.isEmpty()) {
-            sendAddResponse(ctx, ADD_RESULT_FAIL); // Fail
+            sendAddResponse(session, ADD_RESULT_FAIL); // Fail
             return;
         }
 
@@ -48,7 +60,9 @@ public class BuddyAddReader {
 
         if (friendData == null) {
             System.err.println("BS: Add Buddy failed - User not found: " + friendNick);
-            sendAddResponse(ctx, ADD_RESULT_FAIL);
+            // Client-side P2P_RET_ADDBUDDY popup path (flag=0 => not accepted/not found branch).
+            sendRetAddBuddyFailPopup(session, friendNick);
+            sendAddResponse(session, ADD_RESULT_FAIL);
             return;
         }
 
@@ -56,19 +70,19 @@ public class BuddyAddReader {
 
         if (buddyDAO.isBuddy(session.getUserId(), targetUserId)) {
             System.out.println("BS: " + session.getUserId() + " and " + targetUserId + " are already buddies. Skipping add.");
-            sendAddResponse(ctx, ADD_RESULT_ALREADY);
+            sendAddResponse(session, ADD_RESULT_ALREADY);
             return;
         }
 
         if (targetUserId.equalsIgnoreCase(session.getUserId())) {
             System.err.println("BS: Self-add blocked for " + session.getUserId());
-            sendAddResponse(ctx, ADD_RESULT_FAIL);
+            sendAddResponse(session, ADD_RESULT_FAIL);
             return;
         }
 
         if (isPending(session.getUserId(), targetUserId) || isPending(targetUserId, session.getUserId())) {
             System.out.println("BS: Pending buddy invite exists for " + session.getUserId() + " <-> " + targetUserId);
-            sendAddResponse(ctx, ADD_RESULT_ALREADY);
+            sendAddResponse(session, ADD_RESULT_ALREADY);
             return;
         }
 
@@ -131,14 +145,29 @@ public class BuddyAddReader {
         markPending(session.getUserId(), targetUserId);
 
         // Send success to sender
-        sendAddResponse(ctx, ADD_RESULT_OK);
+        sendAddResponse(session, ADD_RESULT_OK);
+        // If target is truly offline, push an explicit offline sync to reduce
+        // client-side P2P fallback delay for subsequent chat/invite actions.
+        if (targetSession == null || !targetSession.isActive() || !targetSession.isAuthenticated()) {
+            BuddyFriendListWriter.sendOfflineSync(session, targetUserId);
+        }
         BuddyFriendListWriter.sendSync(session);
     }
 
-    private static void sendAddResponse(ChannelHandlerContext ctx, int result) {
+    private static void sendAddResponse(BuddySession session, int result) {
         ByteBuf resp = Unpooled.buffer(2);
         resp.writeShortLE(result);
-        ctx.writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_ADD_BUDDY_RESP, resp));
+        session.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_ADD_BUDDY_RESP, resp));
+    }
+
+    private static void sendRetAddBuddyFailPopup(BuddySession session, String targetName) {
+        String safeTarget = targetName != null ? targetName : "";
+        // Gunbound.gme P2P_RET_ADDBUDDY expects: status(1) + id/nick payload.
+        // status=0 triggers the fail/not-found popup branch.
+        ByteBuf popup = Unpooled.buffer(17);
+        popup.writeByte(0x00);
+        popup.writeBytes(BuddyPacketUtils.encFixed(safeTarget, 16));
+        session.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, popup));
     }
 
     static void clearPending(String senderId, String targetUserId) {
@@ -150,6 +179,11 @@ public class BuddyAddReader {
         PENDING_INVITES.put(pendingKey(senderId, targetUserId), System.currentTimeMillis());
     }
 
+    static void registerPending(String senderId, String targetUserId) {
+        if (senderId == null || targetUserId == null) return;
+        markPending(senderId, targetUserId);
+    }
+
     private static boolean isPending(String senderId, String targetUserId) {
         String key = pendingKey(senderId, targetUserId);
         Long ts = PENDING_INVITES.get(key);
@@ -159,6 +193,10 @@ public class BuddyAddReader {
             return false;
         }
         return true;
+    }
+
+    static boolean hasPending(String senderId, String targetUserId) {
+        return isPending(senderId, targetUserId);
     }
 
     private static String pendingKey(String senderId, String targetUserId) {

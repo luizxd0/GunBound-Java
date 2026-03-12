@@ -13,6 +13,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelHandlerContext;
 
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Handles accept/reject of buddy requests (0x3000).
@@ -152,9 +153,34 @@ public class BuddyAcceptRejectReader {
                 // Immediately synchronize statuses so both clients get each other's IPs (P2P handshakes)
                 BuddyFriendListWriter.sendSync(session, senderSession, true); // Send Sender's IP to Receiver
                 BuddyFriendListWriter.sendSync(senderSession, session, true); // Send Receiver's IP to Sender
+
+                // If accept happens before one side has full UDP context, status may look wrong initially.
+                // Do a delayed silent resync (no popup) once context is likely ready.
+                if (needsDelayedResync(session, senderSession)) {
+                    ctx.channel().eventLoop().schedule(() -> {
+                        if (!session.isActive() || !senderSession.isActive()) {
+                            return;
+                        }
+                        BuddyFriendListWriter.sendBuddyList(session);
+                        BuddyFriendListWriter.sendBuddyList(senderSession);
+                        BuddyFriendListWriter.sendSync(session, senderSession, true);
+                        BuddyFriendListWriter.sendSync(senderSession, session, true);
+                    }, 1200, TimeUnit.MILLISECONDS);
+                }
             }
         }
         
         // Sync is handled by sendBuddyList or wasn't an accept
+    }
+
+    private static boolean needsDelayedResync(BuddySession a, BuddySession b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        // Resync only when one side is still missing finalized buddy connectivity context.
+        return !a.isLoginHandshakeFinalized()
+                || !b.isLoginHandshakeFinalized()
+                || a.getClientExternalIp() == null
+                || b.getClientExternalIp() == null;
     }
 }
