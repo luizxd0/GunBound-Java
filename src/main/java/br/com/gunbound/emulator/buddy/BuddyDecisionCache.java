@@ -48,6 +48,18 @@ public final class BuddyDecisionCache {
     }
 
     /**
+     * Returns true if the same decision was processed recently, without inserting/updating.
+     */
+    public boolean isRecentDecision(String actorUserId, String targetUserId, boolean isAccept, long windowMs) {
+        if (actorUserId == null || targetUserId == null) return false;
+
+        String key = actorUserId.toLowerCase() + "|" + targetUserId.toLowerCase() + "|" + (isAccept ? "1" : "0");
+        Long prev = cache.get(key);
+        if (prev == null) return false;
+        return (System.currentTimeMillis() - prev) <= windowMs;
+    }
+
+    /**
      * Check if two users are already buddies (shortcut to avoid duplicate DB writes).
      */
     public static boolean alreadyBuddies(String userId, String friendId) {
