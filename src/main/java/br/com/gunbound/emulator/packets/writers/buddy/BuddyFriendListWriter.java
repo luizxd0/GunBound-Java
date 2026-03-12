@@ -11,6 +11,7 @@ import io.netty.buffer.Unpooled;
 
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
 
 /**
  * Handles sending buddy list (0x1011) and related status updates.
@@ -27,6 +28,15 @@ public class BuddyFriendListWriter {
 
         BuddyDAO buddyDAO = new BuddyJDBC();
         List<Map<String, Object>> buddies = buddyDAO.getBuddyList(session.getUserId());
+        List<Map<String, Object>> validBuddies = new ArrayList<>();
+        for (Map<String, Object> b : buddies) {
+            if (b != null) {
+                String friendId = (String) b.get("Buddy");
+                if (friendId != null && !friendId.isBlank()) {
+                    validBuddies.add(b);
+                }
+            }
+        }
 
         // Generate 4-byte UDP nonce
         byte[] nonce = new byte[4];
@@ -40,37 +50,55 @@ public class BuddyFriendListWriter {
         String selfGuild = session.getGuild() != null ? session.getGuild() : "";
         int selfGrade = session.getTotalGrade();
 
-        ByteBuf listPayload = Unpooled.buffer(28 + (buddies.size() * 41));
-        listPayload.writeShortLE(0); // Prefix
-        listPayload.writeBytes(nonce); // UDP Nonce
-        listPayload.writeBytes(BuddyPacketUtils.encFixed(selfNick, 12));
-        listPayload.writeBytes(BuddyPacketUtils.encFixed(selfGuild, 8));
-        listPayload.writeShortLE(selfGrade);
+        // Some clients parse 0x1011 as one buddy entry per packet.
+        // Send one packet per friend with the same header/nonce.
+        if (validBuddies.isEmpty()) {
+            ByteBuf listPayload = Unpooled.buffer(28);
+            listPayload.writeShortLE(0); // Prefix marker used by client
+            listPayload.writeBytes(nonce); // UDP Nonce
+            listPayload.writeBytes(BuddyPacketUtils.encFixed(selfNick, 12));
+            listPayload.writeBytes(BuddyPacketUtils.encFixed(selfGuild, 8));
+            listPayload.writeShortLE(selfGrade);
+            session.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_BUDDY_LIST, listPayload));
+            return;
+        }
 
-        for (Map<String, Object> b : buddies) {
+        for (Map<String, Object> b : validBuddies) {
             String friendId = (String) b.get("Buddy");
-            if (friendId == null) continue;
-
             String nickName = (String) b.get("NickName");
             if (nickName == null) nickName = friendId;
             String guild = (String) b.get("Guild");
             if (guild == null) guild = "";
             int totalGrade = b.get("TotalGrade") != null ? (Integer) b.get("TotalGrade") : 0;
-
-            // In 0x1011, status is always 0x00 for the buddy list payload.
-            // Actual online status is sent afterwards via 0x3FFF User Sync Broadcast.
-            // If we send 0x01 here, the client misaligns the byte offset and breaks the total grade (level) rendering.
             byte status = (byte) 0x00;
 
-            listPayload.writeShortLE(1); // Group ID
+            short groupId = 1;
+            String category = (String) b.get("Category");
+            if (category != null && !category.isBlank()) {
+                try {
+                    groupId = Short.parseShort(category.trim());
+                } catch (NumberFormatException ignored) {
+                    // Keep default group 1 when category is non-numeric (e.g. "General").
+                }
+            }
+
+            // 0x1011 header (28 bytes) + single buddy-entry (41 bytes)
+            ByteBuf listPayload = Unpooled.buffer(69);
+            listPayload.writeShortLE(0); // Prefix marker used by client
+            listPayload.writeBytes(nonce); // UDP Nonce
+            listPayload.writeBytes(BuddyPacketUtils.encFixed(selfNick, 12));
+            listPayload.writeBytes(BuddyPacketUtils.encFixed(selfGuild, 8));
+            listPayload.writeShortLE(selfGrade);
+
+            listPayload.writeShortLE(groupId);
             listPayload.writeBytes(BuddyPacketUtils.encFixed(friendId, 16));
             listPayload.writeBytes(BuddyPacketUtils.encFixed(nickName, 12));
             listPayload.writeByte(status);
             listPayload.writeBytes(BuddyPacketUtils.encFixed(guild, 8));
             listPayload.writeShortLE(totalGrade);
-        }
 
-        session.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_BUDDY_LIST, listPayload));
+            session.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_BUDDY_LIST, listPayload));
+        }
     }
 
     /**
