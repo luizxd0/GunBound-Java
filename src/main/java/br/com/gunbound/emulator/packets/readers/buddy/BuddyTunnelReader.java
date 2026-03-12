@@ -44,6 +44,17 @@ public class BuddyTunnelReader {
             for (Map<String, Object> b : buddyDAO.getBuddyList(session.getUserId())) {
                 String friendId = (String) b.get("Buddy");
                 if (friendId == null) continue;
+
+                // Right after an accept, some clients can mis-handle the immediate
+                // status relay (0x51 C0 ...) as a second confirmation popup.
+                // Keep the accept popup path intact and suppress only this short-lived relay.
+                if (BuddyDecisionCache.getInstance()
+                        .isRecentDecision(session.getUserId(), friendId, true, 2500)) {
+                    System.out.println("BS: Suppressed immediate status relay after accept: "
+                            + session.getUserId() + " -> " + friendId);
+                    continue;
+                }
+
                 BuddySession targetSession = BuddySessionManager.getInstance().getSession(friendId);
                 if (targetSession != null && targetSession.isActive()) {
                     targetSession.getChannel().writeAndFlush(

@@ -132,16 +132,18 @@ public class BuddyAcceptRejectReader {
         BuddySession senderSession = BuddySessionManager.getInstance().getSession(targetUserId);
         if (senderSession != null) {
             String myNick = session.getNickName() != null ? session.getNickName() : session.getUserId();
-            
-            // Acceptance/Rejection Relay (0x2021)
-            byte[] marker = isAccept ? new byte[]{0x42, (byte)0xC0, 0x01, 0x00, 0x01} 
-                                     : new byte[]{0x42, (byte)0xC0, 0x01, 0x00, 0x00};
-            
-            ByteBuf popup = Unpooled.buffer();
-            popup.writeBytes(BuddyPacketUtils.encFixed(session.getUserId(), 16));
-            popup.writeBytes(BuddyPacketUtils.encFixed(myNick, 12));
-            popup.writeBytes(marker);
-            senderSession.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, popup));
+
+            // Rejection popup still uses explicit relay marker.
+            // Accept popup is intentionally not relayed here because some clients
+            // already raise the same confirmation from the subsequent list/sync updates.
+            if (!isAccept) {
+                byte[] marker = new byte[]{0x42, (byte)0xC0, 0x01, 0x00, 0x00};
+                ByteBuf popup = Unpooled.buffer();
+                popup.writeBytes(BuddyPacketUtils.encFixed(session.getUserId(), 16));
+                popup.writeBytes(BuddyPacketUtils.encFixed(myNick, 12));
+                popup.writeBytes(marker);
+                senderSession.getChannel().writeAndFlush(BuddyPacketUtils.buildPacket(BuddyConstants.SVC_RELAY_BUDDY_REQ, popup));
+            }
 
             if (isAccept) {
                 // Refresh the buddy list for the sender
