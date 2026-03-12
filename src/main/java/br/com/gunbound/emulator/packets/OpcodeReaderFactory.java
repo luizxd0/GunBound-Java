@@ -16,6 +16,7 @@ import br.com.gunbound.emulator.packets.readers.lobby.LobbyJoin;
 import br.com.gunbound.emulator.packets.readers.room.JoinRoomReader;
 import br.com.gunbound.emulator.packets.readers.room.RoomCreateReader;
 import br.com.gunbound.emulator.packets.readers.room.RoomDetailReader;
+import br.com.gunbound.emulator.packets.readers.room.RoomFriendListReader;
 import br.com.gunbound.emulator.packets.readers.room.RoomGameStartReader;
 import br.com.gunbound.emulator.packets.readers.room.RoomListReader;
 import br.com.gunbound.emulator.packets.readers.room.RoomSelectTankReader;
@@ -67,6 +68,7 @@ public class OpcodeReaderFactory {
         readers.put(0x3210, RoomChangeTeamReader::read);  //Mudar de time na sala
         readers.put(0x3230, RoomUserReadyReader::read);  //Esta pronto (ready) ou não
         readers.put(0x2100, RoomListReader::read); // Solicitar lista de salas
+        readers.put(0x2101, RoomFriendListReader::read); // Solicitar lista de salas de amigos
         readers.put(0x2104, RoomDetailReader::read); //detalhe da sala na lista de sala
 		
 
