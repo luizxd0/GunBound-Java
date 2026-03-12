@@ -1,5 +1,7 @@
 package br.com.gunbound.emulator.handlers;
 
+import java.util.List;
+
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import io.netty.util.AttributeKey;
 
@@ -20,6 +22,15 @@ public class GameAttributes {
 	public static final AttributeKey<String> LAST_USER_SEARCH_USER_ID = AttributeKey.valueOf("lastUserSearchUserId");
 	public static final AttributeKey<String> LAST_USER_SEARCH_NICK = AttributeKey.valueOf("lastUserSearchNick");
 	public static final AttributeKey<Long> LAST_USER_SEARCH_TS = AttributeKey.valueOf("lastUserSearchTs");
+	// aplica regra de filtro padrÃ£o da lista de salas na primeira 0x2100 apÃ³s entrar no canal
+	public static final AttributeKey<Boolean> INITIAL_ROOM_LIST_PENDING = AttributeKey.valueOf("initialRoomListPending");
+	public static final AttributeKey<Boolean> WORLD_LIST_JOIN_PENDING = AttributeKey.valueOf("worldListJoinPending");
+	// filtro atual selecionado pelo cliente em SVC_ROOM_SORTED_LIST (1=ALL, 2=WAITING)
+	public static final AttributeKey<Integer> CURRENT_ROOM_LIST_FILTER = AttributeKey.valueOf("currentRoomListFilter");
+	// pagina atual da lista de salas exibida pelo cliente
+	public static final AttributeKey<Integer> CURRENT_ROOM_LIST_START_INDEX = AttributeKey.valueOf("currentRoomListStartIndex");
+	// ids das salas atualmente exibidas ao cliente (usado para refresh de status sem reordenar)
+	public static final AttributeKey<List<Integer>> CURRENT_ROOM_LIST_ROOM_IDS = AttributeKey.valueOf("currentRoomListRoomIds");
 	
 	
 	

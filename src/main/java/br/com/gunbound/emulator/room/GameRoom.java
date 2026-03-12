@@ -530,6 +530,7 @@ public class GameRoom {
 		this.cleanResultGameBySlot();
 
 		this.isGameStarted = true;
+		RoomWriter.broadcastLobbyRoomListRefresh();
 		System.out.println("Iniciando jogo na sala " + (roomId + 1));
 
 		// 1. Seleciona o mapa

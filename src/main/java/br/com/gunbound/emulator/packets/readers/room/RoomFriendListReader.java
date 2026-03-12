@@ -65,6 +65,10 @@ public class RoomFriendListReader {
 		}
 
 		List<GameRoom> roomsForPage = buildFriendRoomsPage(player, startIndex);
+		ctx.channel().attr(GameAttributes.CURRENT_ROOM_LIST_FILTER).set(3);
+		ctx.channel().attr(GameAttributes.CURRENT_ROOM_LIST_START_INDEX).set(Math.max(0, startIndex));
+		ctx.channel().attr(GameAttributes.CURRENT_ROOM_LIST_ROOM_IDS).set(
+				roomsForPage.stream().map(GameRoom::getRoomId).collect(Collectors.toList()));
 		ByteBuf responsePayload = RoomWriter.writeRoomList(roomsForPage);
 		ByteBuf responsePacket = PacketUtils.generatePacket(player, OPCODE_RESPONSE, responsePayload, true);
 		ctx.writeAndFlush(responsePacket);

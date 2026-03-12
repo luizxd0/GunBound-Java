@@ -11,6 +11,7 @@ import br.com.gunbound.emulator.model.DAO.DAOFactory;
 import br.com.gunbound.emulator.model.DAO.UserDAO;
 import br.com.gunbound.emulator.model.entities.game.PlayerGameResult;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.writers.RoomWriter;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import br.com.gunbound.emulator.utils.crypto.GunBoundCipher;
@@ -108,6 +109,7 @@ public class GameResultReader {
 
 		sendResultConfirmation(room);
 		room.isGameStarted(false);// sala deixa de estar em estado playing
+		RoomWriter.broadcastLobbyRoomListRefresh();
 	}
 
 	private static void sendResultConfirmation(GameRoom room) {
@@ -248,6 +250,7 @@ public class GameResultReader {
 		}
 
 		room.isGameStarted(false);// sala deixa de estar em estado playing
+		RoomWriter.broadcastLobbyRoomListRefresh();
 	}
 
 }

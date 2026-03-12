@@ -40,9 +40,11 @@ public class LobbyJoin {
 		// precisamos
 		// definir um channel
 		if (payload == null) {
+			ctx.channel().attr(GameAttributes.WORLD_LIST_JOIN_PENDING).set(Boolean.TRUE);
 			//JoinGameLobby(ctx, DEFAULT_LOBBY_ID);
 			JoinGameLobby(ctx, bestChannelId);
 		} else {
+			ctx.channel().attr(GameAttributes.WORLD_LIST_JOIN_PENDING).set(Boolean.FALSE);
 			// pegar o canal solicitado
 			channelId = (int) PacketUtils.readShortLEFromByteArray(payload);// testando
 
@@ -51,6 +53,7 @@ public class LobbyJoin {
 			// JoinGameLobby(ctx, channelId);
 
 			if (channelId == -1) {
+				ctx.channel().attr(GameAttributes.WORLD_LIST_JOIN_PENDING).set(Boolean.TRUE);
 				PlayerSession ps = ctx.channel().attr(GameAttributes.USER_SESSION).get();
 
 				// remove possiveis duplicidades (PORQUE ao entrar no shop nao sai do channel)
@@ -135,6 +138,11 @@ public class LobbyJoin {
 
 		// Adiciona o jogador ao lobby apropriado
 		gbLobbyManager.playerJoinLobby(player, channelId);
+		// A primeira SVC_ROOM_SORTED_LIST apÃ³s entrar no canal deve aplicar regra padrÃ£o.
+			ctx.channel().attr(GameAttributes.INITIAL_ROOM_LIST_PENDING).set(Boolean.TRUE);
+			ctx.channel().attr(GameAttributes.CURRENT_ROOM_LIST_FILTER).set(null);
+			ctx.channel().attr(GameAttributes.CURRENT_ROOM_LIST_START_INDEX).set(0);
+			ctx.channel().attr(GameAttributes.CURRENT_ROOM_LIST_ROOM_IDS).set(null);
 
 
 		//isso aqui foi inserido porque ao fechar a sala nao dava tempo da collection carregar
@@ -229,3 +237,5 @@ public class LobbyJoin {
 		return buffer;
 	}
 }
+
+

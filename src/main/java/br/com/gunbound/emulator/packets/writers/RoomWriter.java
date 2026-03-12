@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
+import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
 import br.com.gunbound.emulator.model.entities.game.PlayerAvatar;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
@@ -28,6 +29,10 @@ import io.netty.buffer.Unpooled;
  * pacotes de sala.
  */
 public final class RoomWriter {
+	private static final int FILTER_ALL = 1;
+	private static final int FILTER_WAITING = 2;
+	private static final int FILTER_FRIENDS = 3;
+	private static final int ROOMS_PER_PAGE = 6;
 
 	// Construtor privado para evitar instanciação, já que todos os métodos são
 	// estáticos.
@@ -167,17 +172,32 @@ public final class RoomWriter {
 			return;
 		}
 
-		List<GameRoom> sortedRooms = new ArrayList<>(RoomManager.getInstance().getAllRooms());
-		sortedRooms.sort(Comparator.comparingInt((GameRoom room) -> room.hasPowerUserHost() ? 0 : 1)
-				.thenComparingInt(GameRoom::getRoomId));
-
-		int endIndex = Math.min(6, sortedRooms.size());
-		Collection<GameRoom> roomsForPage = endIndex == 0 ? Collections.emptyList() : sortedRooms.subList(0, endIndex);
+		List<GameRoom> allRooms = new ArrayList<>(RoomManager.getInstance().getAllRooms());
 
 		for (PlayerSession lobbyPlayer : lobbyPlayers) {
-			if (lobbyPlayer == null || lobbyPlayer.getPlayerCtx() == null) {
+			if (lobbyPlayer == null || lobbyPlayer.getPlayerCtx() == null || lobbyPlayer.getPlayerCtxChannel() == null) {
 				continue;
 			}
+
+			Integer preferredFilter = lobbyPlayer.getPlayerCtxChannel()
+					.attr(GameAttributes.CURRENT_ROOM_LIST_FILTER)
+					.get();
+
+			Integer preferredStart = lobbyPlayer.getPlayerCtxChannel()
+					.attr(GameAttributes.CURRENT_ROOM_LIST_START_INDEX)
+					.get();
+			int safeStart = preferredStart == null ? 0 : Math.max(0, preferredStart);
+
+			List<Integer> visibleRoomIds = lobbyPlayer.getPlayerCtxChannel()
+					.attr(GameAttributes.CURRENT_ROOM_LIST_ROOM_IDS)
+					.get();
+
+			int effectiveFilter = normalizeFilterMode(preferredFilter);
+			List<GameRoom> roomsForPage = buildRoomsPage(allRooms, effectiveFilter, safeStart, visibleRoomIds);
+
+			lobbyPlayer.getPlayerCtxChannel().attr(GameAttributes.CURRENT_ROOM_LIST_START_INDEX).set(safeStart);
+			lobbyPlayer.getPlayerCtxChannel().attr(GameAttributes.CURRENT_ROOM_LIST_ROOM_IDS)
+					.set(roomsForPage.stream().map(GameRoom::getRoomId).collect(Collectors.toList()));
 
 			ByteBuf responsePayload = writeRoomList(roomsForPage);
 			ByteBuf responsePacket = PacketUtils.generatePacket(lobbyPlayer, 0x2103, responsePayload, true);
@@ -185,6 +205,72 @@ public final class RoomWriter {
 			lobbyPlayer.getPlayerCtxChannel().eventLoop()
 					.execute(() -> lobbyPlayer.getPlayerCtxChannel().writeAndFlush(responsePacket));
 		}
+	}
+
+	private static int normalizeFilterMode(Integer preferredFilter) {
+		if (preferredFilter != null
+				&& (preferredFilter == FILTER_ALL || preferredFilter == FILTER_WAITING || preferredFilter == FILTER_FRIENDS)) {
+			return preferredFilter;
+		}
+		return FILTER_ALL;
+	}
+
+	private static List<GameRoom> buildRoomsPage(List<GameRoom> sourceRooms, int filterMode, int startIndex,
+			List<Integer> visibleRoomIds) {
+		// Broadcast refresh should preserve the current on-screen order and just update
+		// state when possible.
+		List<GameRoom> orderedVisibleRooms = buildOrderedVisibleRooms(visibleRoomIds);
+		if (!orderedVisibleRooms.isEmpty()) {
+			return orderedVisibleRooms;
+		}
+
+		List<GameRoom> filteredRooms;
+		if (filterMode == FILTER_WAITING) {
+			filteredRooms = sourceRooms.stream()
+					.filter(room -> room != null && !room.isGameStarted())
+					.sorted(Comparator.comparingInt((GameRoom room) -> room.hasPowerUserHost() ? 0 : 1)
+							.thenComparingInt(GameRoom::getRoomId))
+					.collect(Collectors.toList());
+		} else if (filterMode == FILTER_FRIENDS) {
+			// Without a visible snapshot, keep current behavior conservative and avoid
+			// reordering to unrelated rooms.
+			filteredRooms = Collections.emptyList();
+		} else {
+			filteredRooms = sourceRooms.stream()
+					.filter(room -> room != null)
+					.sorted(Comparator.comparingInt(GameRoom::getRoomId))
+					.collect(Collectors.toList());
+		}
+
+		if (filteredRooms.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		int safeStart = Math.max(0, startIndex);
+		if (safeStart >= filteredRooms.size()) {
+			return Collections.emptyList();
+		}
+
+		int endIndex = Math.min(safeStart + ROOMS_PER_PAGE, filteredRooms.size());
+		return filteredRooms.subList(safeStart, endIndex);
+	}
+
+	private static List<GameRoom> buildOrderedVisibleRooms(List<Integer> visibleRoomIds) {
+		if (visibleRoomIds == null || visibleRoomIds.isEmpty()) {
+			return Collections.emptyList();
+		}
+
+		List<GameRoom> orderedRooms = new ArrayList<>();
+		for (Integer roomId : visibleRoomIds) {
+			if (roomId == null) {
+				continue;
+			}
+			GameRoom room = RoomManager.getInstance().getRoomById(roomId);
+			if (room != null) {
+				orderedRooms.add(room);
+			}
+		}
+		return orderedRooms;
 	}
 
 	/**
