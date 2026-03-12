@@ -23,12 +23,12 @@ DROP TABLE IF EXISTS `buddylist`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `buddylist` (
-  `Id` int(11) NOT NULL,
-  `Buddy` int(11) NOT NULL,
+  `Id` varchar(16) NOT NULL,
+  `Buddy` varchar(16) NOT NULL,
   `Category` varchar(255) DEFAULT 'General',
   PRIMARY KEY (`Id`,`Buddy`),
   KEY `Buddy` (`Buddy`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -382,15 +382,15 @@ DROP TABLE IF EXISTS `packet`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `packet` (
-  `SerialNo` int(11) NOT NULL AUTO_INCREMENT,
-  `Receiver` int(11) NOT NULL,
-  `Sender` int(11) NOT NULL,
-  `Code` int(11) NOT NULL,
-  `Body` blob NOT NULL,
+  `SerialNo` bigint(20) NOT NULL AUTO_INCREMENT,
+  `Receiver` varchar(16) NOT NULL,
+  `Sender` varchar(16) NOT NULL,
+  `Code` int(10) unsigned NOT NULL DEFAULT 0,
+  `Body` varbinary(1024) DEFAULT NULL,
   `Time` datetime DEFAULT current_timestamp(),
   PRIMARY KEY (`SerialNo`),
   KEY `Receiver` (`Receiver`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
