@@ -90,6 +90,22 @@ public class UserJDBC implements UserDAO {
 		}
 		return null;
 	}
+
+	@Override
+	public void upsertCurrentUser(String userId, int context, String serverIp, int serverPort) {
+		String sql = "INSERT INTO currentuser (Id, Context, ServerIP, ServerPort) VALUES (?, ?, ?, ?) "
+				+ "ON DUPLICATE KEY UPDATE Context = VALUES(Context), ServerIP = VALUES(ServerIP), ServerPort = VALUES(ServerPort)";
+
+		try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+			stmt.setString(1, userId);
+			stmt.setInt(2, context);
+			stmt.setString(3, serverIp);
+			stmt.setInt(4, serverPort);
+			stmt.executeUpdate();
+		} catch (SQLException e) {
+			throw new DbException(e.getMessage());
+		}
+	}
 	
 	
 	@Override

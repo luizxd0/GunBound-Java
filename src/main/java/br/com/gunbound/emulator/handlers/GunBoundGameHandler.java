@@ -5,6 +5,8 @@ import java.util.function.BiConsumer;
 
 import br.com.gunbound.emulator.ConnectionManager;
 import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
+import br.com.gunbound.emulator.model.DAO.DAOFactory;
+import br.com.gunbound.emulator.model.DAO.UserDAO;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.model.entities.game.PlayerSessionManager;
 import br.com.gunbound.emulator.packets.OpcodeReaderFactory;
@@ -14,179 +16,203 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter; // Importação alterada
+import io.netty.channel.ChannelInboundHandlerAdapter;
 
 public class GunBoundGameHandler extends ChannelInboundHandlerAdapter {
 
-	// Obtém a instância única do ConnectionManager
-	private final ConnectionManager connectionManager = ConnectionManager.getInstance();
+    private static final int CURRENTUSER_OFFLINE = 0;
 
-	@Override
-	public void channelActive(ChannelHandlerContext ctx) throws Exception {
-		// Obtenha o endereço remoto do canal (do cliente)
-		InetSocketAddress remoteAddress = (InetSocketAddress) ctx.channel().remoteAddress();
+    // Gets the singleton instance of ConnectionManager
+    private final ConnectionManager connectionManager = ConnectionManager.getInstance();
 
-		// Obtenha o IP e a porta
-		String clientIp = remoteAddress.getAddress().getHostAddress();
-		int clientPort = remoteAddress.getPort();
+    @Override
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        // Get the client's remote address
+        InetSocketAddress remoteAddress = (InetSocketAddress) ctx.channel().remoteAddress();
 
-		System.out.println("GS: Cliente conectado! IP: " + clientIp + ", Porta: " + clientPort);
+        // Get IP and port
+        String clientIp = remoteAddress.getAddress().getHostAddress();
+        int clientPort = remoteAddress.getPort();
 
-		// Inicializa o atributo de soma de pacotes enviados para esta nova conexão.
-		ctx.channel().attr(GameAttributes.PACKET_TX_SUM).set(0);
+        System.out.println("GS: Cliente conectado! IP: " + clientIp + ", Porta: " + clientPort);
 
-		// Inicializa o atributo de AUTH TOKEN
-		ctx.channel().attr(GameAttributes.AUTH_TOKEN).set(new byte[4]);
+        // Initialize packet tx sum for this new connection.
+        ctx.channel().attr(GameAttributes.PACKET_TX_SUM).set(0);
 
-		// Inicializa o atributo que guarda a versao do cliente do player
-		ctx.channel().attr(GameAttributes.CLIENT_VERSION).set(0);
+        // Initialize AUTH token attribute
+        ctx.channel().attr(GameAttributes.AUTH_TOKEN).set(new byte[4]);
 
-		// Inicializa o atributo USER
-		// ctx.channel().attr(GameAttributes.USER_SESSION).set(new PlayerSession());
+        // Initialize client version attribute
+        ctx.channel().attr(GameAttributes.CLIENT_VERSION).set(0);
 
-		// Registra a nova conexão no nosso gerenciador
-		Channel channel = ctx.channel();
-		connectionManager.registerConnection(channel);
+        // Register new connection
+        Channel channel = ctx.channel();
+        connectionManager.registerConnection(channel);
 
-		System.out.println("GS: Total de conexões ativas: " + connectionManager.getActiveConnectionCount());
+        System.out.println("GS: Total de conex\u00f5es ativas: " + connectionManager.getActiveConnectionCount());
 
-		// Você pode armazenar essas informações no contexto do canal se precisar delas
-		// mais tarde
-		// ctx.channel().attr(MY_CUSTOM_ATTRIBUTE_KEY).set(clientIp);
+        super.channelActive(ctx);
+    }
 
-		super.channelActive(ctx);
-	}
+    /**
+     * Processes incoming packets from game clients.
+     */
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) {
+        ByteBuf in = null;
 
-	/**
-	 * Processa um pacote de entrada do cliente de jogo. Recebe um Object e precisa
-	 * ser gerenciado manualmente .
-	 * 
-	 * @param ctx O contexto do canal.
-	 * @param msg O objeto da mensagem (que esperamos ser um ByteBuf).
-	 */
-	@Override
-	public void channelRead(ChannelHandlerContext ctx, Object msg) { // Método alterado
-		ByteBuf in = null; // Declarado fora do try para garantir acesso no finally (IMPORTANTE!)
+        try {
+            if (!(msg instanceof ByteBuf)) {
+                System.err.println("GS: Mensagem recebida n\u00e3o \u00e9 um ByteBuf. Tipo: " + msg.getClass().getName());
+                ctx.fireChannelRead(msg);
+                return;
+            }
 
-		try {
-			if (!(msg instanceof ByteBuf)) {
-				System.err.println("GS: Mensagem recebida não é um ByteBuf. Tipo: " + msg.getClass().getName());
-				// Encaminha a mensagem para o próximo handler ou fecha a conexão se for
-				// inesperado.
-				ctx.fireChannelRead(msg);
-				return;
-			}
+            in = (ByteBuf) msg;
 
-			in = (ByteBuf) msg; // Faz o cast para ByteBuf
+            // Ensure packet has at least sequence + command
+            if (in.readableBytes() < 4) {
+                System.err.println("GS: Pacote de jogo inv\u00e1lido (tamanho < 4 ap\u00f3s decodifica\u00e7\u00e3o)");
+                return;
+            }
 
-			// Verifica se o pacote tem tamanho suficiente para o cabeçalho mínimo
-			// (sequência + comando)
-			if (in.readableBytes() < 4) {
-				System.err.println("GS: Pacote de jogo inválido (tamanho < 4 após decodificação)");
-				return; // Não libera o buffer aqui (PELO AMOR!), pois espera mais dados se for
-						// incompleto.
-			}
+            // 1) Skip packet sequence (2 bytes)
+            in.skipBytes(2);
 
-			// 1. Pula a sequência do pacote (2 bytes) - não é mais usada para log.
-			in.skipBytes(2);
+            // 2) Read command (2 bytes little-endian)
+            int command = in.readUnsignedShortLE();
 
-			// 2. Lê o comando (2 bytes, little-endian).
-			int command = in.readUnsignedShortLE();
+            // 3) Remaining bytes are payload
+            byte[] payloadData = new byte[in.readableBytes()];
+            in.readBytes(payloadData);
 
-			// 3. O restante dos bytes no ByteBuf é o payload real do pacote.
-			byte[] payloadData = new byte[in.readableBytes()];
-			in.readBytes(payloadData);
+            BiConsumer<ChannelHandlerContext, byte[]> reader = OpcodeReaderFactory.getReader(command);
+            if (reader != null) {
+                reader.accept(ctx, payloadData);
+            } else {
+                System.err.println("GS: Comando 0x" + Integer.toHexString(command) + " desconhecido no Game Server.");
+            }
 
-			BiConsumer<ChannelHandlerContext, byte[]> reader = OpcodeReaderFactory.getReader(command);
-			if (reader != null) {
-				reader.accept(ctx, payloadData);
-			} else {
-				System.err.println("GS: Comando 0x" + Integer.toHexString(command) + " desconhecido no Game Server.");
-			}
-			
+        } finally {
+            // Manually release ByteBuf
+            if (in != null) {
+                in.release();
+            }
+        }
+    }
 
-		} finally {
-			// MUITO IMPORTANTE: Liberar o ByteBuf manualmente!
-			if (in != null) {
-				in.release();
-			}
-		}
-	}
+    /**
+     * Currently unused: send auth failure response.
+     */
+    private void sendAuthenticationFailureResponse(ChannelHandlerContext ctx, int currentTxSum) {
+        ByteBuf responsePayload = Unpooled.buffer();
+        responsePayload.writeByte(0x01);
 
-	/**
-	 * POR HORA NAO ESTA SENDO USADO... (HA BASTANTE COISAS PRA SE FAZER) Envia uma
-	 * resposta de falha para a requisição de verificação de usuário/senha. O opcode
-	 * de resposta de falha pode variar.
-	 * 
-	 * @param ctx          O contexto do canal.
-	 * @param currentTxSum A soma atual dos tamanhos dos pacotes enviados.
-	 */
-	private void sendAuthenticationFailureResponse(ChannelHandlerContext ctx, int currentTxSum) {
-		ByteBuf responsePayload = Unpooled.buffer();
-		responsePayload.writeByte(0x01); // Código de status (falha)
+        ByteBuf failurePacket = PacketUtils.generatePacket(currentTxSum, 0x1011, responsePayload);
+        ctx.writeAndFlush(failurePacket);
+        responsePayload.release();
+        System.out.println("GS: Resposta de falha 0x1011 enviada.");
+    }
 
-		ByteBuf failurePacket = PacketUtils.generatePacket(currentTxSum, 0x1011, responsePayload);
-		ctx.writeAndFlush(failurePacket);
-		responsePayload.release(); // Libere o payload após o uso
-		System.out.println("GS: Resposta de falha 0x1011 enviada.");
-	}
+    /**
+     * Called when the game client disconnects.
+     */
+    @Override
+    public void channelInactive(ChannelHandlerContext ctx) {
+        connectionManager.removeConnection(ctx.channel());
+        System.err.println("GS: Cliente de jogo desconectado de " + ctx.channel().remoteAddress());
 
-	/**
-	 * Chamado quando a conexão com o cliente de jogo é inativa.
-	 * 
-	 * @param ctx O contexto do canal.
-	 * @throws Exception
-	 */
-	@Override
-	public void channelInactive(ChannelHandlerContext ctx) {
-		connectionManager.removeConnection(ctx.channel());
-		System.err.println("GS: Cliente de jogo desconectado de " + ctx.channel().remoteAddress());
+        PlayerSession ps = PlayerSessionManager.getInstance().getPlayer(ctx.channel());
+        PlayerSessionManager.getInstance().removePlayer(ctx.channel());
 
-		PlayerSession ps = PlayerSessionManager.getInstance().getPlayer(ctx.channel());
+        ctx.close();
 
-		PlayerSessionManager.getInstance().removePlayer(ctx.channel());
+        if (ps != null) {
+            if (!hasAnotherSessionForUser(ps.getUserNameId(), ctx.channel())) {
+                updateCurrentUserPresence(ps, ctx, CURRENTUSER_OFFLINE);
+            }
 
-		// O canal é removido automaticamente -> abaixo pode ser removido explicitamente
+            GunBoundLobbyManager.getInstance().playerLeaveLobby(ps);
+            RoomManager.getInstance().handlePlayerLeave(ps);
 
-		// super.channelInactive(ctx);
-		ctx.close(); // Fecha a conexão em caso de erro.
+            if (ps.getNickName() == null) {
+                System.err.println("GS: Player desconhecido desconectado");
+            } else {
+                System.err.println("GS: Player " + ps.getNickName() + " desconectado");
+            }
+        }
+    }
 
-		if (ps != null) {
-			GunBoundLobbyManager.getInstance().playerLeaveLobby(ps);
-			RoomManager.getInstance().handlePlayerLeave(ps);
-			
-			if (ps.getNickName() == null) {
-				System.err.println("GS: Player desconhecido desconectado");
-			} else {
-				System.err.println("GS: Player " + ps.getNickName() + " desconectado");
-			}
-		}
-	}
+    /**
+     * Called when an exception occurs in the pipeline.
+     */
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        System.err.println("GS: Exce\u00e7\u00e3o no Game Server para " + ctx.channel().remoteAddress() + ":");
+        PlayerSession ps = PlayerSessionManager.getInstance().getPlayer(ctx.channel());
 
-	/**
-	 * Chamado quando uma exceção ocorre no pipeline.
-	 * 
-	 * @param ctx   O contexto do canal.
-	 * @param cause A causa da exceção.
-	 */
-	@Override
-	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-		System.err.println("GS: Exceção no Game Server para " + ctx.channel().remoteAddress() + ":");
-		PlayerSession ps = PlayerSessionManager.getInstance().getPlayer(ctx.channel());
-		
-		GunBoundLobbyManager.getInstance().playerLeaveLobby(ps);
-		RoomManager.getInstance().handlePlayerLeave(ps);
-		connectionManager.removeConnection(ctx.channel());
+        GunBoundLobbyManager.getInstance().playerLeaveLobby(ps);
+        RoomManager.getInstance().handlePlayerLeave(ps);
+        connectionManager.removeConnection(ctx.channel());
 
-		PlayerSessionManager.getInstance().removePlayer(ctx.channel());
+        PlayerSessionManager.getInstance().removePlayer(ctx.channel());
+        if (ps != null && !hasAnotherSessionForUser(ps.getUserNameId(), ctx.channel())) {
+            updateCurrentUserPresence(ps, ctx, CURRENTUSER_OFFLINE);
+        }
 
-		if (ps.getNickName() == null) {
-			System.err.println("GS: Exceção no Game Server para o Player desconhecido");
-		} else {
-			System.err.println("GS: Exceção no Game Server para o Player " + ps.getNickName());
-		}
-		cause.printStackTrace();
-	
-		ctx.close(); // Fecha a conexão em caso de erro.
-	}
+        if (ps == null || ps.getNickName() == null) {
+            System.err.println("GS: Exce\u00e7\u00e3o no Game Server para o Player desconhecido");
+        } else {
+            System.err.println("GS: Exce\u00e7\u00e3o no Game Server para o Player " + ps.getNickName());
+        }
+        cause.printStackTrace();
+
+        ctx.close();
+    }
+
+    private static boolean hasAnotherSessionForUser(String userId, Channel disconnectedChannel) {
+        if (userId == null || userId.isBlank()) {
+            return false;
+        }
+
+        for (PlayerSession session : PlayerSessionManager.getInstance().getAllPlayers()) {
+            if (session == null || session.getUserNameId() == null) {
+                continue;
+            }
+            if (!session.getUserNameId().equalsIgnoreCase(userId)) {
+                continue;
+            }
+
+            Channel channel = session.getPlayerCtxChannel();
+            if (channel != null && channel != disconnectedChannel && channel.isActive()) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void updateCurrentUserPresence(PlayerSession session, ChannelHandlerContext ctx, int context) {
+        if (session == null || session.getUserNameId() == null || session.getUserNameId().isBlank()) {
+            return;
+        }
+
+        String serverIp = "127.0.0.1";
+        int serverPort = 0;
+
+        if (ctx != null && ctx.channel() != null && ctx.channel().localAddress() instanceof InetSocketAddress) {
+            InetSocketAddress local = (InetSocketAddress) ctx.channel().localAddress();
+            if (local.getAddress() != null) {
+                serverIp = local.getAddress().getHostAddress();
+            }
+            serverPort = local.getPort();
+        }
+
+        try (UserDAO dao = DAOFactory.CreateUserDao()) {
+            dao.upsertCurrentUser(session.getUserNameId(), context, serverIp, serverPort);
+        } catch (Exception e) {
+            System.err.println("GS: Falha ao atualizar currentuser para " + session.getUserNameId() + ": "
+                    + e.getMessage());
+        }
+    }
 }

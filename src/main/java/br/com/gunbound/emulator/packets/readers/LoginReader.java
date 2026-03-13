@@ -1,6 +1,7 @@
 package br.com.gunbound.emulator.packets.readers;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -31,6 +32,7 @@ public class LoginReader {
 
 	private static final int LOGIN_REQUEST = 0x1010;
 	private static final int LOGIN_SUCCESS = 0x1012;
+	private static final int CURRENTUSER_ONLINE = 1;
 	private static final int BASE_REWARD_FACTOR = 100;
 	private static final int POWER_USER_REWARD_MULTIPLIER = 5;
 
@@ -136,6 +138,7 @@ public class LoginReader {
 				// Envia o pacote de login e, no listener de sucesso, AGENDA a próxima etapa.
 				ctx.writeAndFlush(finalPacket).addListener(future -> {
 					if (future.isSuccess()) {
+						updateCurrentUserPresence(session, ctx, CURRENTUSER_ONLINE);
 						System.out.println("Pacote de login (0x1012) enviado. Agendando entrada no canal em 150ms.");
 
 						// PULO DO GATO: Agendamos a tarefa no EventLoop do channel (NETTY)
@@ -163,6 +166,29 @@ public class LoginReader {
 
 		}
 
+	}
+	
+	private static void updateCurrentUserPresence(PlayerSession session, ChannelHandlerContext ctx, int context) {
+		if (session == null || session.getUserNameId() == null || session.getUserNameId().isBlank()) {
+			return;
+		}
+
+		String serverIp = "127.0.0.1";
+		int serverPort = 0;
+
+		if (ctx != null && ctx.channel() != null && ctx.channel().localAddress() instanceof InetSocketAddress) {
+			InetSocketAddress local = (InetSocketAddress) ctx.channel().localAddress();
+			if (local.getAddress() != null) {
+				serverIp = local.getAddress().getHostAddress();
+			}
+			serverPort = local.getPort();
+		}
+
+		try (UserDAO dao = DAOFactory.CreateUserDao()) {
+			dao.upsertCurrentUser(session.getUserNameId(), context, serverIp, serverPort);
+		} catch (Exception e) {
+			System.err.println("Falha ao atualizar currentuser para " + session.getUserNameId() + ": " + e.getMessage());
+		}
 	}
 
 	private static ByteBuf writeLoginSuccess(PlayerSession session, byte[] authToken)

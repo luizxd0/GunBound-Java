@@ -58,7 +58,6 @@ public class LobbyChatReader {
 		// snapshot para evitar concorrência
 		Collection<PlayerSession> recipients = new ArrayList<>(sender.getCurrentLobby().getPlayersInLobby().values());
 		for (PlayerSession recipient : recipients) {
-			//for (PlayerSession recipient : sender.getCurrentLobby().getPlayersInLobby().values()) {
 			try {
 				// 3. Encripta o payload para cada destinatário.
 				byte[] authToken = recipient.getPlayerCtxChannel().attr(GameAttributes.AUTH_TOKEN).get();
