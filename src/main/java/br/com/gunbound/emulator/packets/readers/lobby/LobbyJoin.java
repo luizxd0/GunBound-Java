@@ -10,6 +10,7 @@ import br.com.gunbound.emulator.lobby.GunBoundLobby;
 import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.packets.readers.CashUpdateReader;
+import br.com.gunbound.emulator.packets.readers.MessageBcmReader;
 import br.com.gunbound.emulator.packets.writers.model.JoinChannelSuccessPacket;
 import br.com.gunbound.emulator.room.RoomManager;
 import br.com.gunbound.emulator.utils.PacketUtils;
@@ -190,7 +191,9 @@ public class LobbyJoin {
 		player.getPlayerCtxChannel().writeAndFlush(finalPacket);
 
 		System.out.println("GS: Pacote de entrada no canal (0x2001) enviado para " + player.getNickName());
-		//return joinChannelPayload;
+
+		// Envia a mensagem BCM para o jogador informando sobre o modo Jewel
+		MessageBcmReader.printMsgToPlayer(player, "Você pode jogar sozinho no modo Jewel se digitar /start");
 	}
 
 	/**
@@ -204,7 +207,7 @@ public class LobbyJoin {
 		ByteBuf buffer = Unpooled.buffer();
 
 		// 1. Cabeçalho do Payload
-		// Conforme a referência, começa com 2 bytes nulos, seguidos pelo ID do canal.
+		// Conforme a referência, começa with 2 bytes nulos, seguidos pelo ID do canal.
 		buffer.writeBytes(new byte[] { 0x00, 0x00 });
 
 		buffer.writeShortLE(packetData.getDesiredChannelId()); // tem que ser -1 aqui pq aqui o lobby 1 é 0 no array do
@@ -242,5 +245,3 @@ public class LobbyJoin {
 		return buffer;
 	}
 }
-
-
