@@ -25,7 +25,7 @@ public class MenuJDBC implements MenuDAO {
 	 public List<MenuDTO> getAll() {
         List<MenuDTO> list = new ArrayList<>();
         String sql = "SELECT " +
-                "Idx, No, ItemCount, Item1, Period1, Volume1, " +
+                "Idx, No, ItemCount, Item1, Item2, Item3, Item4, Item5, Period1, Volume1, " +
                 "Menu_Name, Menu_Desc, Menu_Image, ExType, " +
                 "PriceByCashForW, PriceByCashForM, PriceByCashForY, PriceByCashForI, " +
                 "PriceByGoldForW, PriceByGoldForM, PriceByGoldForY, PriceByGoldForI " +
@@ -96,6 +96,10 @@ public class MenuJDBC implements MenuDAO {
         m.setNo(rs.getInt("No"));
         m.setItemCount(JdbcUtils.getNullableInt(rs, "ItemCount"));
         m.setItem1(JdbcUtils.getNullableInt(rs, "Item1"));
+        m.setItem2(JdbcUtils.getNullableInt(rs, "Item2"));
+        m.setItem3(JdbcUtils.getNullableInt(rs, "Item3"));
+        m.setItem4(JdbcUtils.getNullableInt(rs, "Item4"));
+        m.setItem5(JdbcUtils.getNullableInt(rs, "Item5"));
         m.setPeriod1(JdbcUtils.getNullableInt(rs, "Period1"));
         m.setVolume1(JdbcUtils.getNullableInt(rs, "Volume1"));
         m.setMenuName(rs.getString("Menu_Name"));

@@ -5,6 +5,10 @@ public class MenuDTO {
 	private Integer no;
 	private Integer itemCount;
 	private Integer item1;
+	private Integer item2;
+	private Integer item3;
+	private Integer item4;
+	private Integer item5;
 	private Integer period1;
 	private Integer volume1;
 	private String menuName;
@@ -58,6 +62,38 @@ public class MenuDTO {
 
 	public void setPeriod1(Integer period1) {
 		this.period1 = period1;
+	}
+
+	public Integer getItem2() {
+		return item2;
+	}
+
+	public void setItem2(Integer item2) {
+		this.item2 = item2;
+	}
+
+	public Integer getItem3() {
+		return item3;
+	}
+
+	public void setItem3(Integer item3) {
+		this.item3 = item3;
+	}
+
+	public Integer getItem4() {
+		return item4;
+	}
+
+	public void setItem4(Integer item4) {
+		this.item4 = item4;
+	}
+
+	public Integer getItem5() {
+		return item5;
+	}
+
+	public void setItem5(Integer item5) {
+		this.item5 = item5;
 	}
 
 	public Integer getVolume1() {
