@@ -16,6 +16,7 @@ import br.com.gunbound.emulator.packets.readers.CashUpdateReader;
 import br.com.gunbound.emulator.packets.readers.GoldUpdateReader;
 import br.com.gunbound.emulator.packets.readers.MessageBcmReader;
 import br.com.gunbound.emulator.packets.readers.lobby.LobbyJoin;
+import br.com.gunbound.emulator.packets.writers.RoomWriter;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.room.RoomManager;
 import br.com.gunbound.emulator.room.model.enums.GameMode;
@@ -66,7 +67,7 @@ public class RoomCommandReader {
 
 		switch (command) {
 		case "close":
-			handleCloseCommand(ctx, player);
+			handleCloseCommand(player, paramCmd);
 			break;
 		case "bcm":
 			handleBcmCommand(player, paramCmd);
@@ -89,19 +90,33 @@ public class RoomCommandReader {
 		}
 	}
 
-	private static void handleCloseCommand(ChannelHandlerContext ctx, PlayerSession player) {
-		GameRoom room = player.getCurrentRoom();
-		if (room == null) {
-			MessageBcmReader.printMsgToPlayer(player, "ADMIN >> You are not in a room.");
-			return;
-		}
-		if (!isRoomMaster(player, room)) {
-			MessageBcmReader.printMsgToPlayer(player, "ADMIN >> Only room master can use /close.");
+	private static void handleCloseCommand(PlayerSession actor, String paramCmd) {
+		Integer targetRoomId = parseCloseTargetRoomId(actor, paramCmd);
+		if (targetRoomId == null) {
 			return;
 		}
 
-		MessageBcmReader.printMsgToPlayer(player, "The Room Was Closed");
-		room.submitAction(() -> closeRoom(room), ctx);
+		GameRoom room = RoomManager.getInstance().getRoomById(targetRoomId);
+		if (room == null) {
+			MessageBcmReader.printMsgToPlayer(actor, "SISTEMA >> Sala " + (targetRoomId + 1) + " não encontrada.");
+			return;
+		}
+
+		boolean gmClosePrivilege = isAdmin(actor) || actor.getAuthority() > 0;
+		if (!gmClosePrivilege) {
+			GameRoom currentRoom = actor.getCurrentRoom();
+			if (currentRoom == null || !currentRoom.equals(room)) {
+				MessageBcmReader.printMsgToPlayer(actor, "ADMIN >> Você só pode fechar a sua sala.");
+				return;
+			}
+			if (!isRoomMaster(actor, room)) {
+				MessageBcmReader.printMsgToPlayer(actor, "ADMIN >> Apenas o master pode usar /close.");
+				return;
+			}
+		}
+
+		MessageBcmReader.printMsgToPlayer(actor, "SISTEMA >> Fechando sala " + (room.getRoomId() + 1) + ".");
+		closeRoom(room);
 	}
 
 	private static void handleBcmCommand(PlayerSession player, String message) {
@@ -267,25 +282,93 @@ public class RoomCommandReader {
 	}
 
 	private static void closeRoom(GameRoom room) {
-		List<PlayerSession> recipients = new ArrayList<>(room.getPlayersBySlot().values());
-		for (PlayerSession playerInRoom : recipients) {
-			RoomManager.getInstance().handlePlayerLeave(playerInRoom);
-
-			ByteBuf confirmationPacket = PacketUtils.generatePacket(playerInRoom, OPCODE_CONFIRMATION_CMD,
-					Unpooled.EMPTY_BUFFER, false);
-
-			playerInRoom.getPlayerCtxChannel().writeAndFlush(confirmationPacket)
-					.addListener((ChannelFutureListener) future -> {
-						if (!future.isSuccess()) {
-							System.err.println("Falha ao fechar sala para: " + playerInRoom.getNickName());
-							future.cause().printStackTrace();
-							playerInRoom.getPlayerCtxChannel().close();
-						} else {
-							System.out.println("RoomID: " + (room.getRoomId() + 1) + ", Command Sent: '0x"
-									+ Integer.toHexString(OPCODE_CONFIRMATION_CMD) + "'");
-						}
-					});
+		if (room == null) {
+			return;
 		}
+
+		int roomId = room.getRoomId();
+		List<PlayerSession> recipients = new ArrayList<>(room.getPlayersBySlot().values());
+		if (recipients.isEmpty()) {
+			RoomManager.getInstance().removeRoom(roomId);
+			return;
+		}
+
+		String closeMessage = "SISTEMA >> Sala " + (roomId + 1) + " fechada pelo GM.";
+		for (PlayerSession playerInRoom : recipients) {
+			if (playerInRoom != null) {
+				MessageBcmReader.printMsgToPlayer(playerInRoom, closeMessage);
+			}
+		}
+
+		// Remove todos os players da sala sem usar handlePlayerLeave para evitar estado parcial.
+		for (PlayerSession playerInRoom : recipients) {
+			if (playerInRoom != null && playerInRoom.getCurrentRoom() == room) {
+				room.removePlayer(playerInRoom);
+			}
+		}
+		RoomManager.getInstance().removeRoom(roomId);
+
+		for (PlayerSession playerInRoom : recipients) {
+			if (playerInRoom == null || playerInRoom.getPlayerCtxChannel() == null
+					|| !playerInRoom.getPlayerCtxChannel().isActive()) {
+				continue;
+			}
+
+			playerInRoom.getPlayerCtxChannel().eventLoop().execute(() -> {
+				ByteBuf confirmationPacket = PacketUtils.generatePacket(playerInRoom, OPCODE_CONFIRMATION_CMD,
+						Unpooled.EMPTY_BUFFER, false);
+				playerInRoom.getPlayerCtxChannel().writeAndFlush(confirmationPacket).addListener((ChannelFutureListener) future -> {
+				if (!future.isSuccess()) {
+					System.err.println("Falha ao fechar sala para: " + playerInRoom.getNickName());
+					future.cause().printStackTrace();
+					playerInRoom.getPlayerCtxChannel().close();
+				}
+			});
+			});
+
+			if (playerInRoom.getPlayerCtx() != null) {
+				playerInRoom.getPlayerCtxChannel().eventLoop().schedule(() -> {
+					// Fallback: sÃ³ forÃ§a JoinLobby se o cliente nÃ£o tiver retornado sozinho.
+					if (!playerInRoom.getPlayerCtxChannel().isActive()) {
+						return;
+					}
+					if (playerInRoom.getCurrentRoom() == null && playerInRoom.getCurrentLobby() == null) {
+						LobbyJoin.read(playerInRoom.getPlayerCtx(), null);
+					}
+				}, 500L, TimeUnit.MILLISECONDS);
+			}
+		}
+
+		RoomWriter.broadcastLobbyRoomListRefresh();
+		if (!recipients.isEmpty()) {
+			PlayerSession anchor = recipients.get(0);
+			if (anchor != null && anchor.getPlayerCtxChannel() != null && anchor.getPlayerCtxChannel().isActive()) {
+				anchor.getPlayerCtxChannel().eventLoop().schedule(RoomWriter::broadcastLobbyRoomListRefresh, 300L,
+						TimeUnit.MILLISECONDS);
+			}
+		}
+	}
+
+	private static Integer parseCloseTargetRoomId(PlayerSession actor, String paramCmd) {
+		if (paramCmd == null || paramCmd.isBlank()) {
+			GameRoom currentRoom = actor.getCurrentRoom();
+			if (currentRoom == null) {
+				MessageBcmReader.printMsgToPlayer(actor, "ADMIN >> Você não está em uma sala.");
+				return null;
+			}
+			return currentRoom.getRoomId();
+		}
+
+		String[] parts = paramCmd.trim().split("\\s+");
+		String rawToken = parts[0];
+		String numericToken = rawToken.replaceAll("[^0-9]", "");
+		Integer roomNumber = parsePositiveInteger(numericToken);
+		if (roomNumber == null) {
+			MessageBcmReader.printMsgToPlayer(actor, "ADMIN >> Uso: /close ou /close <numero_da_sala>");
+			return null;
+		}
+
+		return roomNumber - 1;
 	}
 
 	private static void kickPlayerFromRoom(GameRoom room, PlayerSession actor, PlayerSession target) {

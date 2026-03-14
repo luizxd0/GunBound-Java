@@ -25,11 +25,6 @@ public class BuddyServerHandler extends ChannelInboundHandlerAdapter {
         int clientPort = remoteAddress.getPort();
         System.out.println("BS: Client connected! IP: " + clientIp + ", Port: " + clientPort);
 
-        // Create a new BuddySession for this connection
-        BuddySession session = new BuddySession(ctx.channel());
-        // Store session reference in channel attribute for later retrieval
-        BuddySessionManager.getInstance();
-
         super.channelActive(ctx);
     }
 

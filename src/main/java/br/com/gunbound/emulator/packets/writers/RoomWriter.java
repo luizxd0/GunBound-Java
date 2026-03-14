@@ -8,7 +8,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.stream.Collectors;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
@@ -194,16 +193,21 @@ public final class RoomWriter {
 
 			int effectiveFilter = normalizeFilterMode(preferredFilter);
 			List<GameRoom> roomsForPage = buildRoomsPage(allRooms, effectiveFilter, safeStart, visibleRoomIds);
+			List<GameRoom> filteredRooms = filterRooms(allRooms, effectiveFilter);
+			int normalizedStart = normalizePageStart(safeStart, filteredRooms.size());
 
-			lobbyPlayer.getPlayerCtxChannel().attr(GameAttributes.CURRENT_ROOM_LIST_START_INDEX).set(safeStart);
+			lobbyPlayer.getPlayerCtxChannel().attr(GameAttributes.CURRENT_ROOM_LIST_START_INDEX).set(normalizedStart);
 			lobbyPlayer.getPlayerCtxChannel().attr(GameAttributes.CURRENT_ROOM_LIST_ROOM_IDS)
 					.set(roomsForPage.stream().map(GameRoom::getRoomId).collect(Collectors.toList()));
 
-			ByteBuf responsePayload = writeRoomList(roomsForPage);
-			ByteBuf responsePacket = PacketUtils.generatePacket(lobbyPlayer, 0x2103, responsePayload, true);
-
-			lobbyPlayer.getPlayerCtxChannel().eventLoop()
-					.execute(() -> lobbyPlayer.getPlayerCtxChannel().writeAndFlush(responsePacket));
+			lobbyPlayer.getPlayerCtxChannel().eventLoop().execute(() -> {
+				if (!lobbyPlayer.getPlayerCtxChannel().isActive()) {
+					return;
+				}
+				ByteBuf responsePayload = writeRoomList(roomsForPage);
+				ByteBuf responsePacket = PacketUtils.generatePacket(lobbyPlayer, 0x2103, responsePayload, true);
+				lobbyPlayer.getPlayerCtxChannel().writeAndFlush(responsePacket);
+			});
 		}
 	}
 
@@ -224,35 +228,48 @@ public final class RoomWriter {
 			return orderedVisibleRooms;
 		}
 
-		List<GameRoom> filteredRooms;
-		if (filterMode == FILTER_WAITING) {
-			filteredRooms = sourceRooms.stream()
-					.filter(room -> room != null && !room.isGameStarted())
-					.sorted(Comparator.comparingInt((GameRoom room) -> room.hasPowerUserHost() ? 0 : 1)
-							.thenComparingInt(GameRoom::getRoomId))
-					.collect(Collectors.toList());
-		} else if (filterMode == FILTER_FRIENDS) {
-			// Without a visible snapshot, keep current behavior conservative and avoid
-			// reordering to unrelated rooms.
-			filteredRooms = Collections.emptyList();
-		} else {
-			filteredRooms = sourceRooms.stream()
-					.filter(room -> room != null)
-					.sorted(Comparator.comparingInt(GameRoom::getRoomId))
-					.collect(Collectors.toList());
-		}
+		List<GameRoom> filteredRooms = filterRooms(sourceRooms, filterMode);
 
 		if (filteredRooms.isEmpty()) {
 			return Collections.emptyList();
 		}
 
-		int safeStart = Math.max(0, startIndex);
-		if (safeStart >= filteredRooms.size()) {
-			return Collections.emptyList();
-		}
+		int safeStart = normalizePageStart(startIndex, filteredRooms.size());
 
 		int endIndex = Math.min(safeStart + ROOMS_PER_PAGE, filteredRooms.size());
 		return filteredRooms.subList(safeStart, endIndex);
+	}
+
+	private static List<GameRoom> filterRooms(List<GameRoom> sourceRooms, int filterMode) {
+		if (filterMode == FILTER_WAITING) {
+			return sourceRooms.stream()
+					.filter(room -> room != null && !room.isGameStarted())
+					.sorted(Comparator.comparingInt((GameRoom room) -> room.hasPowerUserHost() ? 0 : 1)
+							.thenComparingInt(GameRoom::getRoomId))
+					.collect(Collectors.toList());
+		}
+
+		if (filterMode == FILTER_FRIENDS) {
+			// Without a visible snapshot, keep current behavior conservative and avoid
+			// reordering to unrelated rooms.
+			return Collections.emptyList();
+		}
+
+		return sourceRooms.stream()
+				.filter(room -> room != null)
+				.sorted(Comparator.comparingInt(GameRoom::getRoomId))
+				.collect(Collectors.toList());
+	}
+
+	private static int normalizePageStart(int startIndex, int totalRooms) {
+		int safeStart = Math.max(0, startIndex);
+		if (totalRooms <= 0) {
+			return 0;
+		}
+		if (safeStart < totalRooms) {
+			return safeStart;
+		}
+		return ((totalRooms - 1) / ROOMS_PER_PAGE) * ROOMS_PER_PAGE;
 	}
 
 	private static List<GameRoom> buildOrderedVisibleRooms(List<Integer> visibleRoomIds) {
@@ -343,13 +360,6 @@ public final class RoomWriter {
 			buffer.writeByte(player.getRoomTeam());
 			buffer.writeByte((player.getRoomTankPrimary()) == 0xFF ? Utils.randomMobile(99) : player.getRoomTankPrimary());
 			buffer.writeByte(player.getRoomTankSecondary() == 0xFF ? Utils.randomMobile(99) : player.getRoomTankSecondary());
-
-			int playerX = new Random().nextInt(spawn.getXMax() - spawn.getXMin() + 1) + spawn.getXMin();
-			int playerY = spawn.getY(); // getY() já trata o null, retornando 0
-
-			// buffer.writeShortLE(playerX); // Usando xMin como exemplo, você pode
-			// randomizar
-			// buffer.writeShortLE(playerY);
 
 			System.out.println("[DEBUG] spawn.getXMin " + spawn.getXMin());
 			buffer.writeShortLE(spawn.getXMin()); // Usando xMin como exemplo, você pode randomizar

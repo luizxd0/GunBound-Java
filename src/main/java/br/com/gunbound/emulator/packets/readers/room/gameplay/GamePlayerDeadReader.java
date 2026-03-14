@@ -146,12 +146,11 @@ public class GamePlayerDeadReader {
 				ByteBuf finalPacket = PacketUtils.generatePacket(player, 0x4410,
 						Unpooled.wrappedBuffer(encryptedPayload), false);
 
-				// Enviando packet
-				sendPacketWithEventLoop(player, finalPacket);
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			// Enviando packet
+			sendPacketWithEventLoop(player, finalPacket);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 
 		}
 	}

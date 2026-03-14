@@ -2,7 +2,6 @@ package br.com.gunbound.emulator;
 
 import io.netty.channel.Channel;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.net.InetSocketAddress;
 

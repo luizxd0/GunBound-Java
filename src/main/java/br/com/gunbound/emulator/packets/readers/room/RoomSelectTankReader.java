@@ -2,7 +2,9 @@ package br.com.gunbound.emulator.packets.readers.room;
 
 import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.MessageBcmReader;
 import br.com.gunbound.emulator.room.GameRoom;
+import br.com.gunbound.emulator.room.model.enums.GameMode;
 import br.com.gunbound.emulator.room.model.Tank;
 import br.com.gunbound.emulator.utils.PacketUtils;
 import io.netty.buffer.ByteBuf;
@@ -52,9 +54,13 @@ public class RoomSelectTankReader {
 				true);
 
 		player.getPlayerCtxChannel().writeAndFlush(successPacket);
-
-		// TODO: Notificar os outros jogadores na sala sobre a seleção de tanque.
-		// Isso exigirá um novo método no RoomWriter e uma chamada de broadcast na
-		// GameRoom.
+		GameMode modeFromSettings = GameMode.fromId((room.getGameSettings() >> 16) & 0xFF);
+		GameMode modeFromRoom = GameMode.fromId(room.getGameMode());
+		boolean tagMode = modeFromSettings == GameMode.TAG
+				|| (modeFromSettings == GameMode.UNKNOWN && modeFromRoom == GameMode.TAG);
+		String message = tagMode
+				? "SISTEMA >> Tanques selecionados: " + primaryTankName + " / " + secondaryTankName + "."
+				: "SISTEMA >> Tanque selecionado: " + primaryTankName + ".";
+		MessageBcmReader.printMsgToPlayer(player, message);
 	}
 }

@@ -108,6 +108,9 @@ public final class RoomManager {
 				// Notifica a todos sobre o slot que foi liberado.
 				//room.submitAction(() -> room.notifyPlayerLeft(removedPlayerSlot));
 				room.notifyPlayerLeft(removedPlayerSlot,wasHost);
+				room.notifyPlayerLeftBcm(player);
+				// Força refresh do estado da sala para evitar "ghost" no cliente.
+				room.broadcastRoomUpdate();
 				
 				
 				// Se quem saiu era o host, notifica sobre a migração.
@@ -118,6 +121,10 @@ public final class RoomManager {
 				//}
 				
 
+			}
+
+			if (removedPlayerSlot != -1) {
+				RoomWriter.broadcastLobbyRoomListRefresh();
 			}
 		}
 	}

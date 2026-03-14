@@ -67,14 +67,23 @@ public class MessageBcmReader {
 	 * @param msg
 	 */
 	public static void printMsgToPlayer(PlayerSession player, String msg) {
+		if (player == null || player.getPlayerCtxChannel() == null || !player.getPlayerCtxChannel().isActive()) {
+			return;
+		}
 
-		byte[] messageBytes = msg.getBytes(StandardCharsets.ISO_8859_1);
-		ByteBuf buffer = Unpooled.wrappedBuffer(messageBytes);
-
-		ByteBuf confirmationPacket = PacketUtils.generatePacket(player, OPCODE_MSG_BCM_RESPONSE, buffer, false);
-
+		final byte[] messageBytes = msg.getBytes(StandardCharsets.ISO_8859_1);
 		player.getPlayerCtxChannel().eventLoop().execute(() -> {
-			player.getPlayerCtxChannel().writeAndFlush(confirmationPacket);
+			if (!player.getPlayerCtxChannel().isActive()) {
+				return;
+			}
+
+			ByteBuf payload = Unpooled.wrappedBuffer(messageBytes);
+			try {
+				ByteBuf confirmationPacket = PacketUtils.generatePacket(player, OPCODE_MSG_BCM_RESPONSE, payload, false);
+				player.getPlayerCtxChannel().writeAndFlush(confirmationPacket);
+			} finally {
+				payload.release();
+			}
 		});
 	}
 }

@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import br.com.gunbound.emulator.handlers.GameAttributes;
 import br.com.gunbound.emulator.lobby.GunBoundLobbyManager;
 import br.com.gunbound.emulator.model.entities.game.PlayerSession;
+import br.com.gunbound.emulator.packets.readers.MessageBcmReader;
 import br.com.gunbound.emulator.packets.writers.RoomWriter;
 import br.com.gunbound.emulator.room.GameRoom;
 import br.com.gunbound.emulator.room.RoomManager;
@@ -18,6 +19,7 @@ public class RoomCreateReader {
 
 	private static final int OPCODE_CREATE_REQUEST = 0x2120;
 	private static final int OPCODE_CREATE_SUCCESS = 0x2121;
+	private static final byte[] CREATE_DENY_PAYLOAD = new byte[] { (byte) 0x11, (byte) 0x00 };
 
 	/*
 	 * +-------------------------------------------------+ | 0 1 2 3 4 5 6 7 8 9 a b
@@ -125,7 +127,7 @@ public class RoomCreateReader {
 
 			if (createdRoom == null) {
 				System.err.println("Falha ao criar a sala. Não há IDs disponíveis.");
-				// TODO: Enviar pacote de erro para o cliente
+				sendCreateRoomError(ctx, creator);
 				return;
 			}
 
@@ -179,6 +181,14 @@ public class RoomCreateReader {
 		buffer.writeBytes(motd.getBytes(StandardCharsets.ISO_8859_1));
 
 		return buffer;
+	}
+
+	private static void sendCreateRoomError(ChannelHandlerContext ctx, PlayerSession creator) {
+		ByteBuf errorPayload = Unpooled.wrappedBuffer(CREATE_DENY_PAYLOAD.clone());
+		ByteBuf errorPacket = PacketUtils.generatePacket(creator, OPCODE_CREATE_SUCCESS, errorPayload, false);
+		ctx.writeAndFlush(errorPacket);
+		MessageBcmReader.printMsgToPlayer(creator,
+				"SISTEMA >> Não foi possível criar a sala agora. Tente novamente em instantes.");
 	}
 
 }

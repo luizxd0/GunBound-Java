@@ -1,7 +1,5 @@
 package br.com.gunbound.emulator.packets.readers.room.gameplay;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Map;
 
 import org.mariadb.jdbc.plugin.authentication.standard.ed25519.Utils;
@@ -23,7 +21,6 @@ public class GameResultReader {
 
 	private static final int OPCODE_REQUEST = 0x4412;
 	private static final int OPCODE_CONFIRMATION = 0x4413;
-	private static final int OPCODE_RESULT = 0x4415;
 
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_PLAY_RESULT (0x" + Integer.toHexString(OPCODE_REQUEST) + ")");
@@ -175,82 +172,6 @@ public class GameResultReader {
 		int normalValue = normal == null ? 0 : normal.intValue();
 		int bonusValue = bonus == null ? 0 : bonus.intValue();
 		return normalValue + bonusValue;
-	}
-
-	//This is Just used on Season 2 Versions.
-	private static void announceScorePlayer(GameRoom room) {
-
-		Collection<PlayerSession> recipients = new ArrayList<>(room.getPlayersBySlot().values());
-
-		ByteBuf buffer = Unpooled.buffer();
-		buffer.writeByte(0);
-		buffer.writeShortLE(recipients.size());
-
-		for (PlayerSession player : recipients) {
-
-			int slot = player.getCurrentRoom().getSlotPlayer(player);
-
-			PlayerGameResult pResult = room.getResultGameBySlot().get(slot);
-			
-			System.out.println("announceScorePlayer | pResult >>> SLOT: " + slot + " Valores: " + pResult);
-
-			buffer.writeByte(slot);
-			buffer.writeShortLE(pResult.getNormalGold());// NormalGold
-			buffer.writeShortLE(0);// Unknown
-			buffer.writeShortLE(pResult.getBonusGold());// BonusGold
-			buffer.writeShortLE(0);// Unknown
-			buffer.writeIntLE(0);// Unknown
-			buffer.writeShortLE(pResult.getNormalGp());// NormalGP
-			buffer.writeShortLE(pResult.getBonusGp());// BonusGP
-			buffer.writeShortLE(0);// Unknown
-			buffer.writeByte(0);// gb icon
-			buffer.writeByte(0);// Unknown
-			buffer.writeByte(100);// Hielo
-			buffer.writeByte(0);// kill
-			//buffer.writeBytes(new byte[] { (byte) 0x00, (byte) 0x00, (byte) 0x00, 
-					//(byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00 });
-
-		}
-
-		// Adiciona um padding para garantir o alinhamento de 12 bytes. (Por conta da
-		// criptografia)
-		int currentSize = buffer.writerIndex();
-		int paddingSize = (12 - (currentSize % 12)) % 12; // O % 12 no final lida com o caso de já ser múltiplo.
-		if (paddingSize > 0) {
-			buffer.writeBytes(new byte[paddingSize]);
-		}
-
-		byte[] payloadSend = new byte[buffer.readableBytes()];
-		buffer.readBytes(payloadSend);
-		buffer.release(); // Libera o buffer temporário.
-		
-		System.out.println("To Encrpyt: >> " + Utils.bytesToHex(payloadSend));
-
-		for (PlayerSession player : recipients) {
-
-			// Converte o conteúdo do buffer para um array de bytes.
-
-			byte[] encryptedPayload;
-			try {
-				encryptedPayload = GunBoundCipher.gunboundDynamicEncrypt(payloadSend, player.getUserNameId(),
-						player.getPassword(), player.getPlayerCtxChannel().attr(GameAttributes.AUTH_TOKEN).get(), OPCODE_RESULT);
-
-				// Gera o pacote final e envia
-				//int txSum = player.getPlayerCtx().attr(GameAttributes.PACKET_TX_SUM).get();
-				ByteBuf finalPacket = PacketUtils.generatePacket(player, 0x4415,
-						Unpooled.wrappedBuffer(encryptedPayload),false);
-
-				// Enviando packet
-				player.getPlayerCtxChannel().eventLoop().execute(() -> {
-					player.getPlayerCtxChannel().writeAndFlush(finalPacket);
-				});
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-
-		room.isGameStarted(false);// sala deixa de estar em estado playing
-		RoomWriter.broadcastLobbyRoomListRefresh();
 	}
 
 }

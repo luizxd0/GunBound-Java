@@ -101,7 +101,7 @@ public class GunBoundBrokerServerHandler extends ChannelInboundHandlerAdapter {
 			}
 
 			// Lê a sequência e o comando do pacote (2 bytes cada, little-endian).
-			int packetSequence = in.readUnsignedShortLE();
+			in.readUnsignedShortLE();
 			int clientCommand = in.readUnsignedShortLE();
 
 			System.out.println(""); // Linha em branco para realizar formatação no console.
@@ -142,20 +142,6 @@ public class GunBoundBrokerServerHandler extends ChannelInboundHandlerAdapter {
 		}
 	}
 
-	// Lógica para o comando de login ISSO AQUI NA TA SENDO USADO!
-	private void handleLoginRequest(ChannelHandlerContext ctx, ByteBuf in) {
-		// A lógica de autenticação é mínima no broker server
-		// Você pode apenas ler o resto do pacote se quiser, mas a resposta é fixa
-		System.out.println("Solicitação de login recebida. Respondendo...");
-
-		// Crie o pacote de resposta (0x1312)
-		ByteBuf response = ctx.alloc().buffer();
-		response.writeShortLE(0x1312); // Comando de resposta de login
-		// ... adicione outros dados necessários para a resposta de sucesso
-
-		ctx.writeAndFlush(response); // Envie a resposta de volta ao cliente
-	}
-
 	// Lógica para o comando de lista de servidores
 	private void handleServerListRequest(ChannelHandlerContext ctx, ByteBuf in) {
 		System.out.println("Solicitação de lista de servidores recebida. Respondendo...");
@@ -165,7 +151,8 @@ public class GunBoundBrokerServerHandler extends ChannelInboundHandlerAdapter {
 		directoryPayload.writeByte(serverOptions.size()); // Número de servidores na lista
 
 		// Usamos a lista thread-safe para obter a ocupação atual.
-		int currentUtilization = PlayerSessionManager.getInstance().getActivePlayerCount();
+		int currentUtilization = Math.max(PlayerSessionManager.getInstance().getActivePlayerCount(),
+				worldSession.size());
 
 		// Constrói o payload do diretório, um servidor por vez.
 		for (int i = 0; i < serverOptions.size(); i++) {

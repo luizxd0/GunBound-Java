@@ -80,6 +80,7 @@ public class JoinRoomReader {
 				ctx.writeAndFlush(preparePacket);
 				return;
 			}
+			notifyRoomJoinBcm(room, joiningPlayer);
 
 			// --- ENVIO ASSÍNCRONO ---
 
@@ -126,6 +127,21 @@ public class JoinRoomReader {
 			System.err.println("Erro fatal ao processar entrada na sala:");
 			e.printStackTrace();
 			ctx.close();
+		}
+	}
+
+	private static void notifyRoomJoinBcm(GameRoom room, PlayerSession joiningPlayer) {
+		if (room == null || joiningPlayer == null) {
+			return;
+		}
+
+		List<PlayerSession> recipients = new java.util.ArrayList<>(room.getPlayersBySlot().values());
+		for (PlayerSession playerInRoom : recipients) {
+			if (playerInRoom == null || playerInRoom.equals(joiningPlayer)) {
+				continue;
+			}
+			playerInRoom.getPlayerCtxChannel().eventLoop().schedule(() -> MessageBcmReader.printMsgToPlayer(playerInRoom,
+					"SISTEMA >> " + joiningPlayer.getNickName() + " entrou na sala."), 120L, TimeUnit.MILLISECONDS);
 		}
 	}
 

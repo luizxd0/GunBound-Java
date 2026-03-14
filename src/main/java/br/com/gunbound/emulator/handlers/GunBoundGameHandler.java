@@ -11,9 +11,7 @@ import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 import br.com.gunbound.emulator.model.entities.game.PlayerSessionManager;
 import br.com.gunbound.emulator.packets.OpcodeReaderFactory;
 import br.com.gunbound.emulator.room.RoomManager;
-import br.com.gunbound.emulator.utils.PacketUtils;
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -99,19 +97,6 @@ public class GunBoundGameHandler extends ChannelInboundHandlerAdapter {
                 in.release();
             }
         }
-    }
-
-    /**
-     * Currently unused: send auth failure response.
-     */
-    private void sendAuthenticationFailureResponse(ChannelHandlerContext ctx, int currentTxSum) {
-        ByteBuf responsePayload = Unpooled.buffer();
-        responsePayload.writeByte(0x01);
-
-        ByteBuf failurePacket = PacketUtils.generatePacket(currentTxSum, 0x1011, responsePayload);
-        ctx.writeAndFlush(failurePacket);
-        responsePayload.release();
-        System.out.println("GS: Resposta de falha 0x1011 enviada.");
     }
 
     /**

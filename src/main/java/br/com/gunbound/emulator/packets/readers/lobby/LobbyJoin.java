@@ -25,7 +25,6 @@ public class LobbyJoin {
 
 	private static final int OPCODE_REQUEST = 0x2000;
 	private static final int DEFAULT_LOBBY_ID = 7;
-	private static final int LOBBY_ALT_ID = 2;
 
 	public static void read(ChannelHandlerContext ctx, byte[] payload) {
 		System.out.println("RECV> SVC_JOIN_CHANNEL (0x" + Integer.toHexString(OPCODE_REQUEST) + ")");
@@ -33,7 +32,7 @@ public class LobbyJoin {
 		// --- LÓGICA DE DISTRIBUIÇÃO EM AÇÃO ---
 	    // 1. Pede ao LobbyManager para encontrar o melhor canal.
 	    int bestChannelId = GunBoundLobbyManager.getInstance().findBestChannelForNewPlayer();
-		Integer channelId = 7; // por padrao setado pro lobby 8 (1 no cliente)
+		Integer channelId = DEFAULT_LOBBY_ID; // por padrao setado pro lobby 8 (1 no cliente)
 		Integer channelIdEntered = -1; 
 
 		// se o payload ta zerado é pq ele veio pelo loginWriter (World List) entao
@@ -47,6 +46,14 @@ public class LobbyJoin {
 			ctx.channel().attr(GameAttributes.WORLD_LIST_JOIN_PENDING).set(Boolean.FALSE);
 			// pegar o canal solicitado
 			channelId = (int) PacketUtils.readShortLEFromByteArray(payload);// testando
+			PlayerSession ps = ctx.channel().attr(GameAttributes.USER_SESSION).get();
+
+			// Sempre que o cliente pedir entrada em lobby, garanta saída da sala atual
+			// (independente do channelId enviado).
+			RoomManager roomManager = RoomManager.getInstance();
+			if (ps != null && ps.getCurrentRoom() != null) {
+				roomManager.handlePlayerLeave(ps);
+			}
 
 			// se for 0xFFFF (-1) seta lobby 3 (2 no array)
 			// channelId = channelId == -1 ? 2 : channelId;
@@ -54,16 +61,14 @@ public class LobbyJoin {
 
 			if (channelId == -1) {
 				ctx.channel().attr(GameAttributes.WORLD_LIST_JOIN_PENDING).set(Boolean.TRUE);
-				PlayerSession ps = ctx.channel().attr(GameAttributes.USER_SESSION).get();
+				ps = ctx.channel().attr(GameAttributes.USER_SESSION).get();
 
 				// remove possiveis duplicidades (PORQUE ao entrar no shop nao sai do channel)
 				gbLobbyManager.playerLeaveLobby(ps);
 
 				
-				//se saiu do room precisa tirar o camarada de lá
-				RoomManager roomManager = RoomManager.getInstance();
-
-				if (roomManager.isPlayerInAnyRoom(ps)) {
+				// Se saiu do room, precisa tirar o jogador de lá.
+				if (ps != null && ps.getCurrentRoom() != null) {
 					roomManager.handlePlayerLeave(ps);
 				}
 

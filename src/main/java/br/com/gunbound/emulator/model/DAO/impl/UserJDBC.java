@@ -8,7 +8,6 @@ import java.sql.SQLException;
 import br.com.gunbound.emulator.db.DbException;
 import br.com.gunbound.emulator.model.DAO.UserDAO;
 import br.com.gunbound.emulator.model.entities.DTO.UserDTO;
-import br.com.gunbound.emulator.model.entities.game.PlayerSession;
 
 public class UserJDBC implements UserDAO {
 	private Connection conn;
@@ -180,19 +179,6 @@ public class UserJDBC implements UserDAO {
 		} catch (SQLException e) {
 			throw new DbException(e.getMessage());
 		}
-	}
-
-
-	private PlayerSession instantiateSkuList(ResultSet rs) throws SQLException {
-		PlayerSession get = new PlayerSession();
-		/*
-		 * get.setId(rs.getInt("id")); get.setIdProduto(rs.getString("id_produto"));
-		 * get.setSkuProduto(rs.getString("sku_produto"));
-		 * get.setNome(rs.getString("nome"));
-		 * get.setNomeResumido(rs.getString("nome_resumido"));
-		 * get.setSigla(rs.getString("sigla")); get.setAtivo(rs.getInt("ativo"));
-		 */
-		return get;
 	}
 
 	@Override
